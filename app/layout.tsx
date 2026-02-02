@@ -1,3 +1,4 @@
+import { ReactNode } from 'react'
 import './globals.css'
 
 export const metadata = {
@@ -5,7 +6,7 @@ export const metadata = {
   description: 'AI-Powered Customer Churn Detection',
 }
 
-export default function RootLayout({ children }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>
