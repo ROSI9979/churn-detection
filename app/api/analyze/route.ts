@@ -32,20 +32,22 @@ export async function POST(request: NextRequest) {
 }
 
 function analyze(data: any[]) {
-  const cols = Object.keys(data[0])
-  const schema = {
+  const cols = Object.keys(data[0] || {})
+  
+  const schema: any = {
     id: cols.find(c => /customer|id|account/i.test(c)),
     value: cols.find(c => /spending|revenue|sales|amount/i.test(c)),
     trend: cols.find(c => /trend|change|growth/i.test(c)),
   }
 
-  const values = data.map(r => parseFloat(r[schema.value] || 0)).filter(v => v > 0)
-  const mean = values.reduce((a,b) => a+b, 0) / values.length
-  const std = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length)
+  const valueCol = schema.value || cols[0]
+  const values = data.map(r => parseFloat(r[valueCol] || 0)).filter(v => v > 0)
+  const mean = values.length > 0 ? values.reduce((a,b) => a+b, 0) / values.length : 0
+  const std = values.length > 0 ? Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length) : 0
 
   const customers = data.map((row: any, i: number) => {
     let risk = 0
-    const val = parseFloat(row[schema.value] || 0)
+    const val = parseFloat(row[valueCol] || 0)
     if (val < mean - std) risk += 25
     const trend = parseFloat(row[schema.trend] || 0)
     if (trend < -std) risk += 30
@@ -56,7 +58,11 @@ function analyze(data: any[]) {
       clv: val,
       days_until_churn: Math.max(10, 180 - (risk * 1.6)),
       business_type: 'Unknown',
-      region: 'Unknown'
+      region: 'Unknown',
+      products_lost: 0,
+      lost_products_details: [],
+      total_lost_revenue: 0,
+      trend_direction: trend > 0 ? 'Growing' : trend < 0 ? 'Declining' : 'Stable'
     }
   })
 
