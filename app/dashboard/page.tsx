@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ScatterChart, Scatter } from 'recharts'
-import { TrendingDown, AlertCircle, DollarSign, Users, TrendingUp, Download } from 'lucide-react'
+import { TrendingDown, AlertCircle, DollarSign, Users, TrendingUp, Download, Upload } from 'lucide-react'
 
 export default function Dashboard() {
   const [customers, setCustomers] = useState<any[]>([])
@@ -35,7 +35,6 @@ export default function Dashboard() {
 
   if (loading) return <div className="flex items-center justify-center min-h-screen bg-slate-900"><p className="text-white text-2xl">📊 Loading Dashboard...</p></div>
 
-  // Analytics
   const highRisk = customers.filter((c: any) => c.churn_risk_score >= 75).length
   const mediumRisk = customers.filter((c: any) => c.churn_risk_score >= 50 && c.churn_risk_score < 75).length
   const lowRisk = customers.filter((c: any) => c.churn_risk_score < 50).length
@@ -44,7 +43,6 @@ export default function Dashboard() {
   const avgRisk = customers.length ? customers.reduce((a: number, c: any) => a + c.churn_risk_score, 0) / customers.length : 0
   const retention = 100 - avgRisk
 
-  // Chart data
   const riskDistribution = [
     { name: 'High Risk (75+)', value: highRisk, fill: '#dc2626' },
     { name: 'Medium Risk (50-75)', value: mediumRisk, fill: '#f59e0b' },
@@ -62,7 +60,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header */}
       <div className="bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-8 py-6">
           <div className="flex justify-between items-center">
@@ -78,7 +75,6 @@ export default function Dashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-8 py-8">
-        {/* Upload Section */}
         <form onSubmit={handleUpload} className="bg-gradient-to-r from-blue-900 to-blue-800 border border-blue-700 rounded-xl p-6 mb-8 shadow-xl">
           <div className="flex items-center justify-between">
             <div>
@@ -100,7 +96,6 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* Executive Summary KPIs */}
             <div className="grid grid-cols-4 gap-6 mb-8">
               <div className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 rounded-xl p-6 shadow-lg hover:shadow-xl transition">
                 <div className="flex items-center justify-between">
@@ -146,9 +141,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Charts Row 1 */}
             <div className="grid grid-cols-2 gap-6 mb-8">
-              {/* Risk Distribution */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 rounded-xl p-6 shadow-lg">
                 <h3 className="text-lg font-bold text-white mb-4">Customer Risk Distribution</h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -163,7 +156,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Revenue by Risk Level */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 rounded-xl p-6 shadow-lg">
                 <h3 className="text-lg font-bold text-white mb-4">Revenue Exposure by Risk Level</h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -178,9 +170,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Charts Row 2 */}
             <div className="grid grid-cols-2 gap-6 mb-8">
-              {/* Top Customers Risk vs Revenue */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 rounded-xl p-6 shadow-lg">
                 <h3 className="text-lg font-bold text-white mb-4">Top 10 Customers: Risk vs Revenue</h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -194,7 +184,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Risk Metrics */}
               <div className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 rounded-xl p-6 shadow-lg">
                 <h3 className="text-lg font-bold text-white mb-4">Risk Metrics Summary</h3>
                 <div className="space-y-4">
@@ -231,11 +220,10 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Top At-Risk Customers Table */}
             <div className="bg-gradient-to-br from-slate-800 to-slate-700 border border-slate-600 rounded-xl p-6 shadow-lg">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-white">🚨 Top 15 Customers - Intervention Required</h3>
-                <button className="text-slate-300 hover:text-white text-sm flex items-center gap-1"><Download className="w-4 h-4" /> Export</button>
+                <Download className="w-5 h-5 text-slate-400" />
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -275,8 +263,4 @@ export default function Dashboard() {
       </div>
     </div>
   )
-}
-
-function Upload() {
-  return null
 }
