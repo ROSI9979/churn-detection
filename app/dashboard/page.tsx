@@ -5,23 +5,31 @@ import { useState, useEffect } from 'react'
 export default function Dashboard() {
   const [customers, setCustomers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     fetch('/api/customers').then(r => r.json()).then(setCustomers).finally(() => setLoading(false))
   }, [])
 
-  const handleUpload = async (e: any) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setUploading(true)
 
+    const formData = new FormData(e.currentTarget)
     try {
-      const text = await file.text()
-      const json = JSON.parse(text)
-      const data = json.high_risk_customers || (Array.isArray(json) ? json : [])
-      setCustomers(data)
-      alert('✅ Loaded ' + data.length + ' customers!')
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const json = await res.json()
+      
+      if (json.success) {
+        setCustomers(json.data)
+        alert('✅ Loaded ' + json.count + ' customers!')
+      } else {
+        alert('❌ ' + json.error)
+      }
     } catch (err) {
       alert('❌ Error: ' + err)
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -35,18 +43,26 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="mb-2">📊 Customer Churn Intelligence</h1>
-        <p className="text-gray-600 mb-8">Upload your churn data</p>
+        <p className="text-gray-600 mb-8">Upload and analyze customer churn data</p>
 
-        <div className="bg-blue-100 border-4 border-blue-500 rounded-lg p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-4">📁 UPLOAD YOUR FILE</h2>
+        <form onSubmit={handleUpload} className="bg-green-100 border-4 border-green-500 rounded-lg p-8 mb-8">
+          <h2 className="text-2xl font-bold mb-4">📁 UPLOAD FILE</h2>
           <input 
             type="file" 
-            accept=".json,.csv"
-            onChange={handleUpload}
-            className="block w-full p-4 border-2 border-blue-500 rounded-lg cursor-pointer text-lg"
+            name="file"
+            accept=".json"
+            required
+            className="block w-full p-4 border-2 border-green-500 rounded-lg cursor-pointer text-lg mb-4"
           />
-          <p className="mt-4 text-blue-700">Upload JSON or CSV with your customer data</p>
-        </div>
+          <button 
+            type="submit" 
+            disabled={uploading}
+            className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50"
+          >
+            {uploading ? '⏳ Uploading...' : '📤 Upload JSON'}
+          </button>
+          <p className="mt-4 text-green-700">Upload your churn_report.json file</p>
+        </form>
 
         {customers.length > 0 && (
           <>
