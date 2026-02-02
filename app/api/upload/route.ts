@@ -38,6 +38,15 @@ function parseCSV(text: string): any[] {
       const val = values[idx]
       obj[header] = isNaN(Number(val)) ? val : Number(val)
     })
-    return obj
+    
+    // Map your columns to dashboard columns
+    return {
+      customer_id: obj.customer_id,
+      churn_risk_score: obj.churn_risk_score,
+      clv: obj.avg_spending || obj.latest_spending || 0,
+      days_until_churn: 30, // default
+      business_type: obj.risk_level || 'Unknown',
+      region: 'N/A'
+    }
   })
 }
