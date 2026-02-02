@@ -50,7 +50,7 @@ export default function Dashboard() {
           <input 
             type="file" 
             name="file"
-            accept=".json"
+            accept=".json,.csv"
             required
             className="block w-full p-4 border-2 border-green-500 rounded-lg cursor-pointer text-lg mb-4"
           />
@@ -59,9 +59,9 @@ export default function Dashboard() {
             disabled={uploading}
             className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50"
           >
-            {uploading ? '⏳ Uploading...' : '📤 Upload JSON'}
+            {uploading ? '⏳ Uploading...' : '📤 Upload JSON or CSV'}
           </button>
-          <p className="mt-4 text-green-700">Upload your churn_report.json file</p>
+          <p className="mt-4 text-green-700">Upload JSON or CSV file with customer data</p>
         </form>
 
         {customers.length > 0 && (
