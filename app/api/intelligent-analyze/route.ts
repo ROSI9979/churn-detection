@@ -47,12 +47,12 @@ function detectEntities(data: any[]) {
   const cols = Object.keys(data[0] || {})
   
   const patterns = {
-    customer: /customer|account|id|user|entity|party|company|client|org|subscriber|patient|policy|shipper|agent|guest|student|member/i,
-    product: /product|service|item|module|feature|sku|category|offering|part|course|room|route|content|policy|coverage|plan/i,
-    value: /amount|spending|revenue|sales|value|total|price|cost|qty|quantity|volume|mrr|arr|premium|fare|fee/i,
-    time: /date|month|year|period|quarter|week|day|timestamp|time/i,
-    trend: /trend|change|growth|decline|delta|variance|increase|decrease|velocity/i,
-    frequency: /frequency|count|volume|transaction|activity|engagement|usage|visits/i,
+    customer: /customer|account|id|user|entity|party|company|client|org|subscriber|patient/i,
+    product: /product|service|item|module|feature|sku|category|offering|part|course/i,
+    value: /amount|spending|revenue|sales|value|total|price|cost|qty|quantity/i,
+    time: /date|month|year|period|quarter|week|day|timestamp/i,
+    trend: /trend|change|growth|decline|delta|variance/i,
+    frequency: /frequency|count|volume|transaction|activity|engagement|usage/i,
     status: /status|state|active|inactive|cancelled|suspended/i
   }
   
@@ -68,7 +68,7 @@ function analyzeTimeline(data: any[], schema: any) {
   if (!schema.time) return { periods: [], dateRange: null }
   
   const dates = data.map(r => parseDate(r[schema.time])).filter(d => d)
-  const uniquePeriods = [...new Set(dates.map(d => d.period))]
+  const uniquePeriods = Array.from(new Set(dates.map(d => d.period)))
   
   return {
     periods: uniquePeriods.sort(),
@@ -175,7 +175,9 @@ function generateCustomerInsights(data: any[], schema: any, productLosses: any, 
       products_lost: lostProducts.length,
       lost_products_details: lostProducts,
       total_lost_revenue: totalLoss,
-      trend_direction: trend > 0 ? 'Growing' : trend < 0 ? 'Declining' : 'Stable'
+      trend_direction: trend > 0 ? 'Growing' : trend < 0 ? 'Declining' : 'Stable',
+      business_type: 'Unknown',
+      region: 'Unknown'
     }
   })
 }
@@ -184,14 +186,14 @@ function detectIndustry(data: any[], schema: any) {
   const products = data.map((r: any) => r[schema.product]?.toString().toLowerCase() || '')
   
   const industries: any = {
-    retail: ['shoes', 'clothing', 'electronics', 'grocery', 'fashion', 'apparel'],
-    saas: ['module', 'feature', 'subscription', 'plan', 'tier', 'addon', 'plugin'],
-    telecom: ['voice', 'data', 'tv', 'broadband', 'service', 'line', 'minutes'],
-    healthcare: ['therapy', 'checkup', 'surgery', 'treatment', 'visit', 'consultation'],
-    insurance: ['policy', 'coverage', 'plan', 'insurance', 'protection'],
-    manufacturing: ['part', 'material', 'component', 'unit', 'assembly'],
-    finance: ['account', 'loan', 'card', 'deposit', 'investment', 'mortgage'],
-    hospitality: ['room', 'suite', 'package', 'service', 'amenity']
+    retail: ['shoes', 'clothing', 'electronics', 'grocery', 'fashion'],
+    saas: ['module', 'feature', 'subscription', 'plan', 'tier', 'addon'],
+    telecom: ['voice', 'data', 'tv', 'broadband', 'service'],
+    healthcare: ['therapy', 'checkup', 'surgery', 'treatment', 'visit'],
+    insurance: ['policy', 'coverage', 'plan', 'protection'],
+    manufacturing: ['part', 'material', 'component', 'unit'],
+    finance: ['account', 'loan', 'card', 'deposit', 'investment'],
+    hospitality: ['room', 'suite', 'package', 'service']
   }
   
   let maxMatches = 0
@@ -223,7 +225,7 @@ function generateIndustryInsights(customers: any[], industry: string, schema: an
     avg_products_lost: (customers.reduce((a, c) => a + c.products_lost, 0) / customers.length).toFixed(1),
     top_lost_products: getTopLostProducts(customers),
     retention_priority: generateRetentionPriority(customers),
-    industry_recommendations: getIndustryRecommendations(industry, customers)
+    industry_recommendations: getIndustryRecommendations(industry)
   }
 }
 
@@ -255,38 +257,14 @@ function generateRetentionPriority(customers: any[]) {
     }))
 }
 
-function getIndustryRecommendations(industry: string, customers: any[]) {
+function getIndustryRecommendations(industry: string) {
   const recommendations: any = {
-    retail: [
-      'Launch product-specific campaigns for abandoned categories',
-      'Analyze seasonality in product abandonment',
-      'Test bundle offers combining popular products'
-    ],
-    saas: [
-      'Identify feature usage patterns causing churn',
-      'Create module-specific onboarding for at-risk accounts',
-      'Offer module bundles at discounted rates'
-    ],
-    telecom: [
-      'Analyze service bundling changes',
-      'Detect service downgrade patterns',
-      'Offer family plan upgrades'
-    ],
-    healthcare: [
-      'Monitor care gaps in treatment plans',
-      'Schedule preventive checkups for at-risk patients',
-      'Offer wellness program bundles'
-    ],
-    insurance: [
-      'Alert on coverage reduction patterns',
-      'Cross-sell appropriate coverage gaps',
-      'Offer loyalty discounts for multi-policy holders'
-    ]
+    retail: ['Launch product-specific campaigns', 'Analyze seasonality', 'Test bundle offers'],
+    saas: ['Identify feature usage patterns', 'Create module-specific onboarding', 'Offer module bundles'],
+    telecom: ['Analyze service bundling', 'Detect downgrade patterns', 'Offer family plan upgrades'],
+    healthcare: ['Monitor care gaps', 'Schedule preventive checkups', 'Offer wellness bundles'],
+    insurance: ['Alert on coverage reduction', 'Cross-sell coverage gaps', 'Offer loyalty discounts']
   }
   
-  return recommendations[industry] || [
-    'Create retention campaigns for at-risk customers',
-    'Offer personalized bundles combining lost products',
-    'Schedule follow-up calls within 48 hours'
-  ]
+  return recommendations[industry] || ['Create retention campaigns', 'Offer personalized bundles', 'Schedule follow-up calls']
 }
