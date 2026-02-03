@@ -46,7 +46,7 @@ function universalAnalyze(rawData: any[]) {
 function detectEntities(data: any[]) {
   const cols = Object.keys(data[0] || {})
   
-  const patterns = {
+  const patterns: any = {
     customer: /customer|account|id|user|entity|party|company|client|org|subscriber|patient/i,
     product: /product|service|item|module|feature|sku|category|offering|part|course/i,
     value: /amount|spending|revenue|sales|value|total|price|cost|qty|quantity/i,
@@ -58,7 +58,7 @@ function detectEntities(data: any[]) {
   
   const schema: any = {}
   for (const [key, pattern] of Object.entries(patterns)) {
-    schema[key] = cols.find(c => pattern.test(c))
+    schema[key] = cols.find((c: string) => pattern.test(c))
   }
   
   return schema
@@ -117,8 +117,9 @@ function detectProductLoss(data: any[], schema: any, temporal: any) {
   
   for (const [cust, products] of Object.entries(customerProducts)) {
     productLoss[cust] = []
+    const productsObj = products as any
     
-    for (const [prod, purchases] of Object.entries(products)) {
+    for (const [prod, purchases] of Object.entries(productsObj)) {
       const sortedPurchases = (purchases as any[]).sort((a, b) => a.period.localeCompare(b.period))
       const lastPeriod = sortedPurchases[sortedPurchases.length - 1]?.period
       const currentPeriod = temporal.periods[temporal.periods.length - 1]
