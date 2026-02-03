@@ -67,7 +67,8 @@ function detectEntities(data: any[]) {
 function analyzeTimeline(data: any[], schema: any) {
   if (!schema.time) return { periods: [], dateRange: null }
   
-  const dates = data.map(r => parseDate(r[schema.time])).filter(d => d)
+  const allDates = data.map(r => parseDate(r[schema.time]))
+  const dates = allDates.filter((d: any) => d !== null) as Array<{period: string, original: any}>
   const uniquePeriods = Array.from(new Set(dates.map(d => d.period)))
   
   return {
