@@ -38,7 +38,7 @@ function universalAnalyze(rawData: any[]) {
   const productLosses = detectProductLoss(rawData, schema, temporal)
   const customers = generateCustomerInsights(rawData, schema, productLosses, temporal)
   const industry = detectIndustry(rawData, schema)
-  const insights = generateIndustryInsights(customers, industry, schema)
+  const insights = generateIndustryInsights(customers, industry)
   
   return { customers, insights }
 }
@@ -46,7 +46,7 @@ function universalAnalyze(rawData: any[]) {
 function detectEntities(data: any[]) {
   const cols = Object.keys(data[0] || {})
   
-  const patterns: any = {
+  const patterns: Record<string, RegExp> = {
     customer: /customer|account|id|user|entity|party|company|client|org|subscriber|patient/i,
     product: /product|service|item|module|feature|sku|category|offering|part|course/i,
     value: /amount|spending|revenue|sales|value|total|price|cost|qty|quantity/i,
@@ -58,7 +58,7 @@ function detectEntities(data: any[]) {
   
   const schema: any = {}
   for (const [key, pattern] of Object.entries(patterns)) {
-    schema[key] = cols.find((c: string) => pattern.test(c))
+    schema[key] = cols.find((c: string) => (pattern as RegExp).test(c))
   }
   
   return schema
@@ -187,7 +187,7 @@ function generateCustomerInsights(data: any[], schema: any, productLosses: any, 
 function detectIndustry(data: any[], schema: any) {
   const products = data.map((r: any) => r[schema.product]?.toString().toLowerCase() || '')
   
-  const industries: any = {
+  const industries: Record<string, string[]> = {
     retail: ['shoes', 'clothing', 'electronics', 'grocery', 'fashion'],
     saas: ['module', 'feature', 'subscription', 'plan', 'tier', 'addon'],
     telecom: ['voice', 'data', 'tv', 'broadband', 'service'],
@@ -212,7 +212,7 @@ function detectIndustry(data: any[], schema: any) {
   return detectedIndustry
 }
 
-function generateIndustryInsights(customers: any[], industry: string, schema: any) {
+function generateIndustryInsights(customers: any[], industry: string) {
   const highRisk = customers.filter(c => c.churn_risk_score >= 75)
   const totalRevenue = customers.reduce((a, c) => a + c.clv, 0)
   const totalLoss = customers.reduce((a, c) => a + c.total_lost_revenue, 0)
@@ -260,7 +260,7 @@ function generateRetentionPriority(customers: any[]) {
 }
 
 function getIndustryRecommendations(industry: string) {
-  const recommendations: any = {
+  const recommendations: Record<string, string[]> = {
     retail: ['Launch product-specific campaigns', 'Analyze seasonality', 'Test bundle offers'],
     saas: ['Identify feature usage patterns', 'Create module-specific onboarding', 'Offer module bundles'],
     telecom: ['Analyze service bundling', 'Detect downgrade patterns', 'Offer family plan upgrades'],
