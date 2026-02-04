@@ -1,0 +1,7 @@
+{
+  "buildCommand": "pip install --break-system-packages pandas numpy scikit-learn xgboost torch textblob nltk optuna redis numba plotly imbalanced-learn shap && next build",
+  "devCommand": "next dev",
+  "env": {
+    "PYTHON_VERSION": "3.11"
+  }
+}
