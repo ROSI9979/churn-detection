@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Upload, Zap, BarChart3, Brain, MessageSquare } from 'lucide-react'
+import { useState } from 'react'
+import { Upload, TrendingDown, Package } from 'lucide-react'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
+const COLORS = ['#ef4444', '#f59e0b', '#10b981']
 
 export default function Dashboard() {
   const [customers, setCustomers] = useState<any[]>([])
@@ -30,6 +33,7 @@ export default function Dashboard() {
 
   const highRisk = customers.filter((c: any) => c.churn_risk_score >= 75).length
   const roi = insights?.roi_analysis || {}
+  const productLoss = insights?.product_loss_analysis || []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -47,7 +51,7 @@ export default function Dashboard() {
               <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                 <Upload className="w-8 h-8" /> Enterprise Analysis
               </h2>
-              <p className="text-purple-200 mt-2">Upload CSV/JSON - 8 Advanced Features</p>
+              <p className="text-purple-200 mt-2">Upload CSV/JSON - See Product Loss & Revenue Impact</p>
             </div>
             <div className="flex gap-4">
               <input type="file" name="file" accept=".json,.csv" required className="px-4 py-3 border-2 border-purple-400 rounded-lg text-white bg-purple-700" />
@@ -84,85 +88,83 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Features */}
+            {/* CHARTS */}
+            <div className="grid grid-cols-2 gap-6 mb-8">
+              {/* Risk Distribution Pie Chart */}
+              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-purple-500">
+                <h3 className="text-white font-bold mb-4">Customer Risk Distribution</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie data={insights.charts?.risk_distribution || []} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={100} fill="#8884d8" dataKey="value">
+                      {(insights.charts?.risk_distribution || []).map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Revenue by Risk Bar Chart */}
+              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-purple-500">
+                <h3 className="text-white font-bold mb-4">Revenue Exposure by Risk</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={insights.charts?.revenue_by_risk || []}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+                    <XAxis dataKey="name" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" />
+                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }} />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* PRODUCT LOSS ANALYSIS */}
             <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-8 mb-8 border border-purple-500">
               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <Brain className="w-8 h-8 text-purple-400" /> 8 Enterprise Features
+                <Package className="w-8 h-8 text-orange-400" /> 📦 Products Customers Are Losing
               </h3>
-              <div className="grid grid-cols-4 gap-4">
-                {(insights.features_implemented || []).map((feature: string, i: number) => (
-                  <div key={i} className="bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg p-4 text-white text-sm">
-                    <p className="font-semibold">✅ {feature}</p>
-                  </div>
-                ))}
-              </div>
+              {productLoss.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {productLoss.map((p: any, i: number) => (
+                    <div key={i} className="bg-red-900 bg-opacity-20 rounded-lg p-6 border border-red-700">
+                      <p className="text-white font-bold text-lg">{p.product}</p>
+                      <p className="text-red-400 text-sm mt-3">
+                        <span className="font-bold">{p.customers_losing}</span> customers losing this
+                      </p>
+                      <p className="text-red-400 text-sm mt-2">
+                        <span className="font-bold">£{(p.revenue_loss / 1000).toFixed(0)}K</span> revenue loss
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-purple-300">No significant product losses detected</p>
+              )}
             </div>
 
-            {/* Performance */}
-            <div className="grid grid-cols-3 gap-6 mb-8">
-              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-blue-500">
-                <h4 className="text-white font-bold flex items-center gap-2 mb-4">
-                  <Zap className="w-5 h-5 text-yellow-400" /> Performance
-                </h4>
-                <p className="text-blue-300 text-sm"><span className="font-bold">{(insights.performance_metrics?.response_time_ms || 0).toFixed(1)}ms</span> response</p>
-                <p className="text-blue-300 text-sm mt-2"><span className="font-bold">{(insights.performance_metrics?.throughput_per_second || 0).toFixed(0)}</span> customers/sec</p>
-              </div>
-
-              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-green-500">
-                <h4 className="text-white font-bold flex items-center gap-2 mb-4">
-                  <BarChart3 className="w-5 h-5 text-green-400" /> Accuracy
-                </h4>
-                <p className="text-green-300 text-sm"><span className="font-bold">{((insights.model_performance?.ensemble_accuracy || 0) * 100).toFixed(1)}%</span> accuracy</p>
-                <p className="text-green-300 text-sm mt-2"><span className="font-bold">✅</span> 95%+ target</p>
-              </div>
-
-              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-orange-500">
-                <h4 className="text-white font-bold flex items-center gap-2 mb-4">
-                  <MessageSquare className="w-5 h-5 text-orange-400" /> Sentiment
-                </h4>
-                <p className="text-orange-300 text-sm"><span className="font-bold">{insights.sentiment_analysis?.negative_sentiment_count || 0}</span> negative</p>
-                <p className="text-orange-300 text-sm mt-2"><span className="font-bold">{insights.sentiment_analysis?.positive_sentiment_count || 0}</span> positive</p>
-              </div>
-            </div>
-
-            {/* ROI */}
-            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl shadow-2xl p-8 mb-8 border border-green-500">
-              <h3 className="text-3xl font-bold text-white mb-6">💎 Fortune 500 ROI</h3>
-              <div className="grid grid-cols-3 gap-6">
-                <div>
-                  <p className="text-green-100 text-sm">Customers to Save</p>
-                  <p className="text-4xl font-bold text-white mt-3">{roi.high_risk_customers || 0}</p>
-                </div>
-                <div>
-                  <p className="text-green-100 text-sm">Campaign Cost</p>
-                  <p className="text-4xl font-bold text-white mt-3">£{(((roi.campaign_cost || 0) / 1000)).toFixed(0)}K</p>
-                </div>
-                <div>
-                  <p className="text-green-100 text-sm">Net ROI</p>
-                  <p className="text-4xl font-bold text-white mt-3">£{(((roi.net_roi || 0) / 1000000)).toFixed(1)}M</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Table */}
+            {/* HIGH RISK CUSTOMERS WITH PRODUCT LOSS */}
             <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-8 border border-purple-500 overflow-x-auto">
-              <h3 className="text-2xl font-bold text-white mb-6">👥 Top Customers</h3>
+              <h3 className="text-2xl font-bold text-white mb-6">👥 High Risk Customers & Their Losses</h3>
               <table className="w-full text-white text-sm">
                 <thead className="border-b border-purple-500">
                   <tr>
                     <th className="text-left py-3 px-4">Customer</th>
-                    <th className="text-right py-3 px-4">Risk</th>
-                    <th className="text-right py-3 px-4">CLV</th>
-                    <th className="text-center py-3 px-4">Sentiment</th>
+                    <th className="text-center py-3 px-4">Risk Score</th>
+                    <th className="text-right py-3 px-4">Revenue (CLV)</th>
+                    <th className="text-center py-3 px-4">Products Losing</th>
+                    <th className="text-right py-3 px-4">Loss Impact</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.slice(0, 10).map((c: any) => (
-                    <tr key={c.customer_id} className="border-b border-purple-500 border-opacity-30 hover:bg-purple-500 hover:bg-opacity-10">
-                      <td className="py-3 px-4">{c.customer_id}</td>
-                      <td className="py-3 px-4 text-right">{(c.churn_risk_score || 0).toFixed(0)}</td>
-                      <td className="py-3 px-4 text-right">£{(c.clv || 0).toLocaleString()}</td>
-                      <td className="py-3 px-4 text-center">{(c.sentiment_score || 0).toFixed(2)}</td>
+                  {customers.filter((c: any) => c.churn_risk_score >= 75).slice(0, 15).map((c: any, i: number) => (
+                    <tr key={i} className="border-b border-purple-500 border-opacity-30 hover:bg-purple-500 hover:bg-opacity-10">
+                      <td className="py-3 px-4 font-semibold">{c.customer_id}</td>
+                      <td className="py-3 px-4 text-center"><span className="bg-red-900 text-red-200 px-3 py-1 rounded font-bold">{c.churn_risk_score.toFixed(0)}</span></td>
+                      <td className="py-3 px-4 text-right">£{c.clv.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-center">{(c.products_losing || []).length > 0 ? c.products_losing.join(', ') : 'None'}</td>
+                      <td className="py-3 px-4 text-right text-red-400 font-bold">£{c.product_loss_revenue.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -171,7 +173,7 @@ export default function Dashboard() {
           </>
         ) : (
           <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-16 text-center border border-purple-500">
-            <p className="text-purple-300 text-xl">👆 Upload your data to begin analysis</p>
+            <p className="text-purple-300 text-xl">👆 Upload your data to see product loss analysis & graphs</p>
           </div>
         )}
       </div>
