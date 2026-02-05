@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
         const obj: any = {}
         headers.forEach((h, i) => {
           const val = vals[i]
-          // Try to parse as number
           const num = parseFloat(val)
           obj[h] = isNaN(num) ? val : num
         })
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    if (!data.length) return NextResponse.json({ error: 'No data parsed' }, { status: 400 })
+    if (!data.length) return NextResponse.json({ error: 'No data' }, { status: 400 })
 
     const engine = new EnterprisePLCAA()
     const analysis = engine.analyze(data)
@@ -38,12 +37,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       data: analysis.customers, 
-      analysis: analysis.insights,
-      debug: {
-        total_rows: data.length,
-        first_row: data[0],
-        detected_columns: analysis.insights.detected_columns
-      }
+      analysis: analysis.insights
     })
   } catch (error: any) {
     console.error('Error:', error)
