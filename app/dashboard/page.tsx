@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Upload, TrendingDown, Package } from 'lucide-react'
+import { Upload, TrendingDown, Package, Download, Share2 } from 'lucide-react'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 const COLORS = ['#ef4444', '#f59e0b', '#10b981']
@@ -31,6 +31,24 @@ export default function Dashboard() {
     }
   }
 
+  const exportData = async (format: 'csv' | 'json') => {
+    try {
+      const res = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: customers, format })
+      })
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `churn-analysis.${format}`
+      a.click()
+    } catch (err) {
+      alert('❌ Export failed')
+    }
+  }
+
   const highRisk = customers.filter((c: any) => c.churn_risk_score >= 75).length
   const roi = insights?.roi_analysis || {}
   const productLoss = insights?.product_loss_analysis || []
@@ -39,8 +57,22 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="bg-gradient-to-r from-purple-700 to-blue-700 text-white sticky top-0 z-50 shadow-2xl">
         <div className="max-w-7xl mx-auto px-8 py-8">
-          <h1 className="text-4xl font-bold">🏆 PLCAA Enterprise Edition</h1>
-          <p className="text-purple-100 mt-2">Industry-Standard AI Churn Detection</p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-4xl font-bold">🏆 PLCAA Enterprise Edition</h1>
+              <p className="text-purple-100 mt-2">Industry-Standard AI Churn Detection</p>
+            </div>
+            {customers.length > 0 && (
+              <div className="flex gap-3">
+                <button onClick={() => exportData('csv')} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                  <Download className="w-4 h-4" /> CSV
+                </button>
+                <button onClick={() => exportData('json')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                  <Download className="w-4 h-4" /> JSON
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -55,7 +87,7 @@ export default function Dashboard() {
             </div>
             <div className="flex gap-4">
               <input type="file" name="file" accept=".json,.csv" required className="px-4 py-3 border-2 border-purple-400 rounded-lg text-white bg-purple-700" />
-              <button type="submit" disabled={uploading} className="bg-white text-purple-900 px-8 py-3 rounded-lg font-bold">
+              <button type="submit" disabled={uploading} className="bg-white text-purple-900 px-8 py-3 rounded-lg font-bold hover:bg-purple-50 disabled:opacity-50">
                 {uploading ? '⏳ Analyzing...' : '🚀 Analyze'}
               </button>
             </div>
@@ -84,13 +116,12 @@ export default function Dashboard() {
               </div>
               <div className="bg-blue-500 bg-opacity-20 rounded-xl shadow-lg p-6 border border-blue-500 text-white">
                 <p className="text-blue-300 text-sm font-bold">📊 ROI</p>
-                <p className="text-4xl font-bold mt-3">{(roi.roi_percentage || 0).toFixed(0)}%</p>
+                <p className="text-4xl font-bold mt-3">{Math.min(500, (roi.roi_percentage || 0)).toFixed(0)}%</p>
               </div>
             </div>
 
-            {/* CHARTS */}
+            {/* Charts */}
             <div className="grid grid-cols-2 gap-6 mb-8">
-              {/* Risk Distribution Pie Chart */}
               <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-purple-500">
                 <h3 className="text-white font-bold mb-4">Customer Risk Distribution</h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -105,7 +136,6 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               </div>
 
-              {/* Revenue by Risk Bar Chart */}
               <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-purple-500">
                 <h3 className="text-white font-bold mb-4">Revenue Exposure by Risk</h3>
                 <ResponsiveContainer width="100%" height={300}>
@@ -120,7 +150,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* PRODUCT LOSS ANALYSIS */}
+            {/* Product Loss */}
             <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-8 mb-8 border border-purple-500">
               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                 <Package className="w-8 h-8 text-orange-400" /> 📦 Products Customers Are Losing
@@ -130,30 +160,26 @@ export default function Dashboard() {
                   {productLoss.map((p: any, i: number) => (
                     <div key={i} className="bg-red-900 bg-opacity-20 rounded-lg p-6 border border-red-700">
                       <p className="text-white font-bold text-lg">{p.product}</p>
-                      <p className="text-red-400 text-sm mt-3">
-                        <span className="font-bold">{p.customers_losing}</span> customers losing this
-                      </p>
-                      <p className="text-red-400 text-sm mt-2">
-                        <span className="font-bold">£{(p.revenue_loss / 1000).toFixed(0)}K</span> revenue loss
-                      </p>
+                      <p className="text-red-400 text-sm mt-3"><span className="font-bold">{p.customers_losing}</span> customers losing</p>
+                      <p className="text-red-400 text-sm mt-2"><span className="font-bold">£{(p.revenue_loss / 1000).toFixed(0)}K</span> loss</p>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-purple-300">No significant product losses detected</p>
+                <p className="text-purple-300">No product losses detected</p>
               )}
             </div>
 
-            {/* HIGH RISK CUSTOMERS WITH PRODUCT LOSS */}
+            {/* High Risk Table */}
             <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-8 border border-purple-500 overflow-x-auto">
-              <h3 className="text-2xl font-bold text-white mb-6">👥 High Risk Customers & Their Losses</h3>
+              <h3 className="text-2xl font-bold text-white mb-6">👥 High Risk Customers</h3>
               <table className="w-full text-white text-sm">
                 <thead className="border-b border-purple-500">
                   <tr>
                     <th className="text-left py-3 px-4">Customer</th>
-                    <th className="text-center py-3 px-4">Risk Score</th>
-                    <th className="text-right py-3 px-4">Revenue (CLV)</th>
-                    <th className="text-center py-3 px-4">Products Losing</th>
+                    <th className="text-center py-3 px-4">Risk</th>
+                    <th className="text-right py-3 px-4">Revenue</th>
+                    <th className="text-center py-3 px-4">Trend</th>
                     <th className="text-right py-3 px-4">Loss Impact</th>
                   </tr>
                 </thead>
@@ -163,7 +189,7 @@ export default function Dashboard() {
                       <td className="py-3 px-4 font-semibold">{c.customer_id}</td>
                       <td className="py-3 px-4 text-center"><span className="bg-red-900 text-red-200 px-3 py-1 rounded font-bold">{c.churn_risk_score.toFixed(0)}</span></td>
                       <td className="py-3 px-4 text-right">£{c.clv.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-center">{(c.products_losing || []).length > 0 ? c.products_losing.join(', ') : 'None'}</td>
+                      <td className="py-3 px-4 text-center text-orange-400">{c.trend_direction}</td>
                       <td className="py-3 px-4 text-right text-red-400 font-bold">£{c.product_loss_revenue.toLocaleString()}</td>
                     </tr>
                   ))}
@@ -173,7 +199,7 @@ export default function Dashboard() {
           </>
         ) : (
           <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-16 text-center border border-purple-500">
-            <p className="text-purple-300 text-xl">👆 Upload your data to see product loss analysis & graphs</p>
+            <p className="text-purple-300 text-xl">👆 Upload your data to see analysis</p>
           </div>
         )}
       </div>
