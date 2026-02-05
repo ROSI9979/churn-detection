@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
       const headers = Object.keys(data[0] || {})
       const csv = [
         headers.join(','),
-        ...data.map(row => headers.map(h => {
+        ...data.map((row: any) => headers.map(h => {
           const val = row[h]
           return typeof val === 'string' ? `"${val}"` : val
         }).join(','))
