@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Mail, Link2, Check, AlertCircle, Download, RefreshCw, Search, FileSpreadsheet, Package } from 'lucide-react'
+import { Mail, Link2, Check, AlertCircle, Download, RefreshCw, Search, FileSpreadsheet, Package, X } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { useSearchParams } from 'next/navigation'
 
@@ -18,6 +18,7 @@ interface Invoice {
   }[]
   total_amount: number
   supplier: string
+  email_subject?: string
 }
 
 export default function EmailImportPage() {
@@ -31,21 +32,22 @@ export default function EmailImportPage() {
   const [supplier, setSupplier] = useState('fresco')
   const [months, setMonths] = useState(18)
   const [stats, setStats] = useState<any>(null)
+  const [account, setAccount] = useState<{ email: string; name: string } | null>(null)
 
   useEffect(() => {
     // Check URL params for connection status
     if (searchParams.get('connected') === 'true') {
       setIsConnected(true)
-      setSuccess('Gmail connected successfully! You can now fetch invoices.')
+      setSuccess('Outlook connected successfully! You can now fetch invoices.')
     }
     if (searchParams.get('error')) {
-      setError('Failed to connect Gmail: ' + searchParams.get('error'))
+      setError('Failed to connect: ' + searchParams.get('error'))
     }
   }, [searchParams])
 
-  const connectGmail = () => {
+  const connectOutlook = () => {
     setLoading(true)
-    window.location.href = '/api/gmail/auth'
+    window.location.href = '/api/outlook/auth'
   }
 
   const fetchInvoices = async () => {
@@ -53,7 +55,7 @@ export default function EmailImportPage() {
     setError('')
 
     try {
-      const res = await fetch(`/api/gmail/fetch-invoices?supplier=${supplier}&months=${months}`)
+      const res = await fetch(`/api/outlook/fetch-invoices?supplier=${supplier}&months=${months}`)
       const data = await res.json()
 
       if (data.success) {
@@ -63,6 +65,7 @@ export default function EmailImportPage() {
           invoices_parsed: data.invoices_parsed,
           date_range: data.date_range
         })
+        setAccount(data.account)
         setSuccess(`Found ${data.invoices_parsed} invoices from ${data.emails_found} emails`)
       } else {
         if (data.needsAuth) {
@@ -107,7 +110,7 @@ export default function EmailImportPage() {
           inv.invoice_number,
           inv.customer_id,
           inv.customer_name,
-          'Unknown Product',
+          'Invoice Total',
           '1',
           inv.total_amount.toString(),
           inv.total_amount.toString(),
@@ -162,28 +165,38 @@ export default function EmailImportPage() {
         {/* Page Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
               <Mail className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white">Email Invoice Import</h1>
-              <p className="text-gray-400">Connect Gmail to automatically fetch Fresco invoices</p>
+              <p className="text-gray-400">Connect Outlook to automatically fetch Fresco invoices</p>
             </div>
           </div>
         </div>
 
         {/* Alerts */}
         {error && (
-          <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-xl p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400" />
-            <p className="text-red-300">{error}</p>
+          <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-red-300">{error}</p>
+            </div>
+            <button onClick={() => setError('')} className="text-red-400 hover:text-red-300">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 bg-green-500/20 border border-green-500/30 rounded-xl p-4 flex items-center gap-3">
-            <Check className="w-5 h-5 text-green-400" />
-            <p className="text-green-300">{success}</p>
+          <div className="mb-6 bg-green-500/20 border border-green-500/30 rounded-xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Check className="w-5 h-5 text-green-400" />
+              <p className="text-green-300">{success}</p>
+            </div>
+            <button onClick={() => setSuccess('')} className="text-green-400 hover:text-green-300">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
@@ -192,30 +205,35 @@ export default function EmailImportPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-semibold text-white flex items-center gap-3">
-                <Link2 className="w-5 h-5 text-emerald-400" />
-                Gmail Connection
+                <Link2 className="w-5 h-5 text-blue-400" />
+                Outlook Connection
               </h2>
               <p className="text-gray-400 text-sm mt-1">
-                Connect your info@tastepizza.uk Gmail to fetch supplier invoices
+                Connect your info@tastepizza.uk Outlook to fetch supplier invoices
               </p>
             </div>
             {isConnected ? (
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-xl">
-                <Check className="w-4 h-4" />
-                Connected
+              <div className="flex items-center gap-3">
+                {account && (
+                  <span className="text-gray-400 text-sm">{account.email}</span>
+                )}
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-500/20 text-green-400 rounded-xl">
+                  <Check className="w-4 h-4" />
+                  Connected
+                </div>
               </div>
             ) : (
               <button
-                onClick={connectGmail}
+                onClick={connectOutlook}
                 disabled={loading}
-                className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-red-500/25 transition-all disabled:opacity-50 flex items-center gap-2"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {loading ? (
                   <RefreshCw className="w-5 h-5 animate-spin" />
                 ) : (
                   <Mail className="w-5 h-5" />
                 )}
-                Connect Gmail
+                Connect Outlook
               </button>
             )}
           </div>
@@ -224,7 +242,7 @@ export default function EmailImportPage() {
             <>
               <div className="border-t border-white/10 pt-6 mt-6">
                 <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-                  <Search className="w-5 h-5 text-blue-400" />
+                  <Search className="w-5 h-5 text-emerald-400" />
                   Search Invoices
                 </h3>
                 <div className="grid grid-cols-2 gap-4 mb-6">
@@ -234,7 +252,7 @@ export default function EmailImportPage() {
                       type="text"
                       value={supplier}
                       onChange={(e) => setSupplier(e.target.value)}
-                      placeholder="fresco, booker, etc."
+                      placeholder="fresco, booker, bidfood..."
                       className="w-full bg-slate-800 text-white px-4 py-3 rounded-xl border border-white/10 focus:border-emerald-500/50 focus:outline-none"
                     />
                   </div>
@@ -287,7 +305,7 @@ export default function EmailImportPage() {
             </div>
             <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 backdrop-blur-xl rounded-2xl p-5 border border-blue-500/30">
               <div className="text-blue-400 text-sm mb-1">Date Range</div>
-              <p className="text-lg font-bold text-white">{stats.date_range.from} - {stats.date_range.to}</p>
+              <p className="text-lg font-bold text-white">{stats.date_range.from} to {stats.date_range.to}</p>
             </div>
           </div>
         )}
@@ -323,7 +341,8 @@ export default function EmailImportPage() {
                   <tr className="border-b border-white/10">
                     <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Date</th>
                     <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Invoice #</th>
-                    <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Products</th>
+                    <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Subject</th>
+                    <th className="text-center py-4 px-5 text-gray-400 font-medium text-sm">Products</th>
                     <th className="text-right py-4 px-5 text-gray-400 font-medium text-sm">Total</th>
                     <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Supplier</th>
                   </tr>
@@ -332,12 +351,12 @@ export default function EmailImportPage() {
                   {invoices.slice(0, 50).map((inv, i) => (
                     <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <td className="py-4 px-5 text-white">{inv.date}</td>
-                      <td className="py-4 px-5 text-gray-300">{inv.invoice_number}</td>
-                      <td className="py-4 px-5 text-gray-400 text-sm">
-                        {inv.products.length > 0
-                          ? inv.products.slice(0, 2).map(p => p.name).join(', ') +
-                            (inv.products.length > 2 ? ` +${inv.products.length - 2} more` : '')
-                          : 'No products parsed'}
+                      <td className="py-4 px-5 text-gray-300 font-mono text-sm">{inv.invoice_number}</td>
+                      <td className="py-4 px-5 text-gray-400 text-sm max-w-[200px] truncate" title={inv.email_subject}>
+                        {inv.email_subject || '-'}
+                      </td>
+                      <td className="py-4 px-5 text-center text-gray-400">
+                        {inv.products.length > 0 ? inv.products.length : '-'}
                       </td>
                       <td className="py-4 px-5 text-right text-emerald-400 font-medium">
                         £{inv.total_amount.toFixed(2)}
@@ -359,25 +378,25 @@ export default function EmailImportPage() {
         {/* Instructions */}
         {!isConnected && (
           <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-3xl p-8 border border-white/10 text-center">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-red-400/20 to-pink-500/20 flex items-center justify-center mx-auto mb-6">
-              <Mail className="w-8 h-8 text-red-400" />
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-400/20 to-cyan-500/20 flex items-center justify-center mx-auto mb-6">
+              <Mail className="w-8 h-8 text-blue-400" />
             </div>
-            <h3 className="text-xl font-semibold text-white mb-3">Connect Your Gmail</h3>
+            <h3 className="text-xl font-semibold text-white mb-3">Connect Your Outlook</h3>
             <p className="text-gray-400 max-w-md mx-auto mb-6">
-              Connect your info@tastepizza.uk Gmail account to automatically fetch and analyze invoices from Fresco Food Services
+              Connect your info@tastepizza.uk Outlook account to automatically fetch and analyze invoices from Fresco Food Services
             </p>
-            <div className="flex flex-col gap-2 text-left max-w-sm mx-auto">
+            <div className="flex flex-col gap-3 text-left max-w-sm mx-auto">
               <div className="flex items-center gap-3 text-gray-300">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm">1</div>
-                Click "Connect Gmail" to authorize access
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-medium">1</div>
+                Click "Connect Outlook" to sign in with Microsoft
               </div>
               <div className="flex items-center gap-3 text-gray-300">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm">2</div>
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-medium">2</div>
                 Search for supplier invoices (e.g., Fresco)
               </div>
               <div className="flex items-center gap-3 text-gray-300">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-sm">3</div>
-                Export or analyze directly in Product Churn
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-sm font-medium">3</div>
+                Export to CSV or analyze directly in Product Churn
               </div>
             </div>
           </div>
