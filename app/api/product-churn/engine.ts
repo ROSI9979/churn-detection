@@ -9,22 +9,16 @@
  */
 
 export interface Order {
-  customer_id?: string
-  customer?: string
-  account?: string
-  product?: string
-  product_name?: string
-  item?: string
-  category?: string
-  quantity?: number
-  qty?: number
-  value?: number
-  amount?: number
-  total?: number
-  net_amount?: number
-  date?: string
-  order_date?: string
-  invoice_date?: string
+  [key: string]: any  // Accept any column names
+}
+
+// Smart column detection patterns (order matters - more specific first)
+const COLUMN_PATTERNS = {
+  customer: /customer[_\s]?id|account[_\s]?id|client[_\s]?id|customer|account|client|buyer|party|entity|company/i,
+  product: /product[_\s]?name|product|item|sku|description|goods|material|service/i,
+  quantity: /quantity|qty|units|count|pieces|pcs/i,
+  value: /net[_\s]?amount|total[_\s]?amount|gross[_\s]?amount|value|amount|total|price|cost|net|gross|sum|revenue|sales/i,
+  date: /invoice[_\s]?date|order[_\s]?date|transaction[_\s]?date|created[_\s]?at|date|created|ordered/i,
 }
 
 export interface CategoryAlert {
@@ -125,6 +119,13 @@ export class ProductLevelChurnEngine {
     decline_pct: number
     critical_decline_pct: number
   }
+  private detectedSchema: {
+    customer: string | null
+    product: string | null
+    quantity: string | null
+    value: string | null
+    date: string | null
+  } | null = null
 
   constructor(lookbackWeeks = 12, baselineWeeks = 8) {
     this.lookbackWeeks = lookbackWeeks
@@ -136,8 +137,103 @@ export class ProductLevelChurnEngine {
     }
   }
 
+  // Auto-detect column names from data
+  private detectSchema(orders: Order[]): void {
+    if (orders.length === 0) return
+
+    const firstRow = orders[0]
+    const columns = Object.keys(firstRow)
+
+    this.detectedSchema = {
+      customer: null,
+      product: null,
+      quantity: null,
+      value: null,
+      date: null,
+    }
+
+    // Find best match for each field type
+    for (const col of columns) {
+      const colLower = col.toLowerCase()
+
+      // Customer field (prioritize id fields)
+      if (!this.detectedSchema.customer && COLUMN_PATTERNS.customer.test(colLower)) {
+        this.detectedSchema.customer = col
+      }
+
+      // Product field (skip if it looks like a customer field)
+      if (!this.detectedSchema.product && COLUMN_PATTERNS.product.test(colLower)) {
+        if (!COLUMN_PATTERNS.customer.test(colLower) || colLower.includes('product')) {
+          this.detectedSchema.product = col
+        }
+      }
+
+      // Quantity field
+      if (!this.detectedSchema.quantity && COLUMN_PATTERNS.quantity.test(colLower)) {
+        // Make sure it's not a value field
+        if (!colLower.includes('price') && !colLower.includes('total') && !colLower.includes('net')) {
+          this.detectedSchema.quantity = col
+        }
+      }
+
+      // Value field (prioritize net_amount, total, value)
+      if (COLUMN_PATTERNS.value.test(colLower)) {
+        // Prefer more specific value columns
+        if (!this.detectedSchema.value ||
+            colLower.includes('net') ||
+            colLower.includes('total') ||
+            colLower.includes('amount')) {
+          this.detectedSchema.value = col
+        }
+      }
+
+      // Date field (prefer columns with 'date' in name, not just 'invoice')
+      if (COLUMN_PATTERNS.date.test(colLower)) {
+        // Skip if it's invoice_number or just contains 'invoice' without 'date'
+        if (colLower.includes('number') || colLower.includes('num') || colLower.includes('no')) {
+          continue
+        }
+        // Prefer columns with 'date' explicitly
+        if (!this.detectedSchema.date || colLower.includes('date')) {
+          this.detectedSchema.date = col
+        }
+      }
+    }
+
+    console.log('Detected schema:', this.detectedSchema)
+  }
+
+  // Get value from order using detected or fallback column names
+  private getField(order: Order, fieldType: 'customer' | 'product' | 'quantity' | 'value' | 'date'): any {
+    // First try detected schema
+    if (this.detectedSchema && this.detectedSchema[fieldType]) {
+      const val = order[this.detectedSchema[fieldType]!]
+      if (val !== undefined && val !== null && val !== '') return val
+    }
+
+    // Fallback to common column names
+    const fallbacks: Record<string, string[]> = {
+      customer: ['customer_id', 'customer', 'account', 'client', 'buyer', 'customer_name', 'account_id', 'client_id'],
+      product: ['product', 'product_name', 'item', 'sku', 'description', 'category', 'goods', 'service'],
+      quantity: ['quantity', 'qty', 'units', 'count', 'pieces', 'pcs'],
+      value: ['net_amount', 'value', 'amount', 'total', 'price', 'net', 'gross', 'revenue', 'sales', 'unit_price'],
+      date: ['date', 'invoice_date', 'order_date', 'transaction_date', 'created_at', 'created'],
+    }
+
+    for (const fallback of fallbacks[fieldType]) {
+      // Try exact match
+      if (order[fallback] !== undefined) return order[fallback]
+      // Try case-insensitive
+      const key = Object.keys(order).find(k => k.toLowerCase() === fallback.toLowerCase())
+      if (key && order[key] !== undefined) return order[key]
+    }
+
+    return null
+  }
+
   private normalizeCategory(rawCategory: string): string {
-    const lower = rawCategory.toLowerCase()
+    if (!rawCategory) return 'unknown'
+    const lower = String(rawCategory).toLowerCase()
     for (const [category, synonyms] of Object.entries(CATEGORY_SYNONYMS)) {
       if (synonyms.some(syn => lower.includes(syn))) {
         return category
@@ -146,45 +242,78 @@ export class ProductLevelChurnEngine {
     return lower
   }
 
+  // Parse date from various formats
+  private normalizeDateString(dateVal: any): string {
+    if (!dateVal) return ''
+
+    let dateStr = String(dateVal)
+
+    // Handle DD-MMM-YYYY format (01-JAN-2025)
+    if (dateStr.match(/^\d{2}-[A-Z]{3}-\d{4}$/i)) {
+      const months: Record<string, string> = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+        'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+        'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+      }
+      const parts = dateStr.toUpperCase().split('-')
+      const month = months[parts[1]] || '01'
+      return `${parts[2]}-${month}-${parts[0]}`
+    }
+
+    // Handle DD/MM/YYYY format
+    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const parts = dateStr.split('/')
+      return `${parts[2]}-${parts[1]}-${parts[0]}`
+    }
+
+    // Handle MM/DD/YYYY format (US)
+    if (dateStr.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+      const parts = dateStr.split('/')
+      return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`
+    }
+
+    // Handle timestamp
+    if (dateStr.includes('T')) {
+      return dateStr.split('T')[0]
+    }
+
+    // Already ISO format or return as-is
+    return dateStr
+  }
+
   private parseOrders(orders: Order[]): Map<string, Map<string, Order[]>> {
+    // Auto-detect schema from first row
+    this.detectSchema(orders)
+
     const grouped = new Map<string, Map<string, Order[]>>()
 
     for (const order of orders) {
-      const customerId = order.customer_id || order.customer || order.account
-      const product = order.product || order.product_name || order.item || order.category
+      const customerId = this.getField(order, 'customer')
+      const product = this.getField(order, 'product')
 
       if (!customerId || !product) continue
 
       const category = this.normalizeCategory(product)
 
-      if (!grouped.has(customerId)) {
-        grouped.set(customerId, new Map())
+      if (!grouped.has(String(customerId))) {
+        grouped.set(String(customerId), new Map())
       }
 
-      const customerMap = grouped.get(customerId)!
+      const customerMap = grouped.get(String(customerId))!
       if (!customerMap.has(category)) {
         customerMap.set(category, [])
       }
 
-      // Parse date - handle multiple formats
-      let dateStr = String(order.date || order.order_date || order.invoice_date || '')
+      const dateVal = this.getField(order, 'date')
+      const dateStr = this.normalizeDateString(dateVal)
 
-      // Convert "01-JAN-2025" format to ISO
-      if (typeof dateStr === 'string' && dateStr.match(/^\d{2}-[A-Z]{3}-\d{4}$/)) {
-        const months: Record<string, string> = {
-          'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
-          'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
-          'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
-        }
-        const parts = dateStr.split('-')
-        const month = months[parts[1]] || '01'
-        dateStr = `${parts[2]}-${month}-${parts[0]}`
-      }
+      const quantity = Number(this.getField(order, 'quantity')) || 1
+      const value = Number(this.getField(order, 'value')) || 0
 
       customerMap.get(category)!.push({
         date: dateStr,
-        quantity: Number(order.quantity || order.qty || 1),
-        value: Number(order.value || order.amount || order.total || order.net_amount || 0),
+        quantity: quantity,
+        value: value,
       } as Order)
     }
 
