@@ -468,7 +468,31 @@ export class ProductLevelChurnEngine {
   }
 
   analyze(orders: Order[], referenceDate?: string): AnalysisResult {
-    const refDate = referenceDate ? new Date(referenceDate) : new Date()
+    // First detect schema so we can find dates
+    this.detectSchema(orders)
+
+    // Auto-detect reference date from data if not provided
+    let refDate: Date
+    if (referenceDate) {
+      refDate = new Date(referenceDate)
+    } else {
+      // Find the latest date in the data to use as reference
+      let latestDate: Date | null = null
+      for (const order of orders) {
+        const dateVal = this.getField(order, 'date')
+        if (dateVal) {
+          const dateStr = this.normalizeDateString(dateVal)
+          const orderDate = this.parseDate(dateStr)
+          if (orderDate && (!latestDate || orderDate > latestDate)) {
+            latestDate = orderDate
+          }
+        }
+      }
+      // Use latest date in data, or current date if no dates found
+      refDate = latestDate || new Date()
+      console.log('Auto-detected reference date:', refDate.toISOString().split('T')[0])
+    }
+
     const grouped = this.parseOrders(orders)
 
     const alerts: CategoryAlert[] = []

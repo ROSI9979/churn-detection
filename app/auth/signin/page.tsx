@@ -14,6 +14,7 @@ export default function SignInPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +26,7 @@ export default function SignInPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError('')
+    setSuccessMessage('')
     setLoading(true)
 
     if (isSignUp && formData.password !== formData.confirmPassword) {
@@ -49,7 +51,13 @@ export default function SignInPage() {
       })
 
       if (result?.error) {
-        setFormError(result.error)
+        // Handle email confirmation error
+        if (result.error.includes('Email not confirmed')) {
+          setSuccessMessage('Account created! Please check your email to confirm your account, then sign in.')
+          setIsSignUp(false)
+        } else {
+          setFormError(result.error)
+        }
       } else {
         router.push(callbackUrl)
       }
@@ -77,6 +85,14 @@ export default function SignInPage() {
 
         {/* Auth Card */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-2xl">
+          {/* Success Messages */}
+          {successMessage && (
+            <div className="bg-green-500/20 border border-green-500 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <Mail className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <p className="text-green-300 text-sm">{successMessage}</p>
+            </div>
+          )}
+
           {/* Error Messages */}
           {(formError || error) && (
             <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6 flex items-center gap-3">
@@ -204,6 +220,7 @@ export default function SignInPage() {
                 onClick={() => {
                   setIsSignUp(!isSignUp)
                   setFormError('')
+                  setSuccessMessage('')
                 }}
                 className="ml-2 text-blue-400 hover:text-blue-300 font-semibold"
               >

@@ -1,11 +1,16 @@
 import NextAuth from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// In production, replace this with a real database
-// For now, using in-memory storage (resets on server restart)
-const users: { id: string; email: string; name: string; password: string }[] = []
+// Create Supabase client only if configured
+let supabase: SupabaseClient | null = null
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (supabaseUrl && supabaseKey && supabaseUrl.startsWith('http')) {
+  supabase = createClient(supabaseUrl, supabaseKey)
+}
 
 const handler = NextAuth({
   providers: [
@@ -15,7 +20,7 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
 
-    // Email + Password
+    // Email + Password with Supabase
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -29,38 +34,60 @@ const handler = NextAuth({
           throw new Error('Email and password required')
         }
 
+        // Check if Supabase is configured
+        if (!supabase) {
+          throw new Error('Supabase not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local')
+        }
+
         const isSignUp = credentials.isSignUp === 'true'
 
         if (isSignUp) {
-          // Sign Up - Create new user
-          const existingUser = users.find(u => u.email === credentials.email)
-          if (existingUser) {
-            throw new Error('User already exists')
-          }
-
-          const hashedPassword = await bcrypt.hash(credentials.password, 10)
-          const newUser = {
-            id: Date.now().toString(),
+          // Sign Up with Supabase Auth
+          const { data, error } = await supabase.auth.signUp({
             email: credentials.email,
-            name: credentials.name || credentials.email.split('@')[0],
-            password: hashedPassword,
-          }
-          users.push(newUser)
+            password: credentials.password,
+            options: {
+              data: {
+                name: credentials.name || credentials.email.split('@')[0],
+              },
+            },
+          })
 
-          return { id: newUser.id, email: newUser.email, name: newUser.name }
+          if (error) {
+            console.error('Supabase signup error:', error)
+            throw new Error(error.message)
+          }
+
+          if (!data.user) {
+            throw new Error('Failed to create account')
+          }
+
+          return {
+            id: data.user.id,
+            email: data.user.email!,
+            name: data.user.user_metadata?.name || credentials.email.split('@')[0],
+          }
         } else {
-          // Sign In - Verify existing user
-          const user = users.find(u => u.email === credentials.email)
-          if (!user) {
-            throw new Error('No account found with this email')
+          // Sign In with Supabase Auth
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: credentials.email,
+            password: credentials.password,
+          })
+
+          if (error) {
+            console.error('Supabase signin error:', error)
+            throw new Error(error.message)
           }
 
-          const isValid = await bcrypt.compare(credentials.password, user.password)
-          if (!isValid) {
-            throw new Error('Invalid password')
+          if (!data.user) {
+            throw new Error('Invalid credentials')
           }
 
-          return { id: user.id, email: user.email, name: user.name }
+          return {
+            id: data.user.id,
+            email: data.user.email!,
+            name: data.user.user_metadata?.name || credentials.email.split('@')[0],
+          }
         }
       },
     }),
