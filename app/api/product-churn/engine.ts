@@ -13,6 +13,7 @@ export interface Order {
   customer?: string
   account?: string
   product?: string
+  product_name?: string
   item?: string
   category?: string
   quantity?: number
@@ -20,8 +21,10 @@ export interface Order {
   value?: number
   amount?: number
   total?: number
+  net_amount?: number
   date?: string
   order_date?: string
+  invoice_date?: string
 }
 
 export interface CategoryAlert {
@@ -82,13 +85,13 @@ export interface AnalysisResult {
 // Category synonyms for normalization
 const CATEGORY_SYNONYMS: Record<string, string[]> = {
   chicken: ['chicken', 'poultry', 'wings', 'breast', 'thighs', 'nuggets'],
-  drinks: ['drinks', 'beverages', 'soft drinks', 'cola', 'water', 'juice', 'fizzy'],
-  cheese: ['cheese', 'dairy', 'cheddar', 'mozzarella', 'parmesan'],
-  dips: ['dips', 'sauce', 'condiments', 'mayo', 'ketchup', 'garlic'],
+  drinks: ['drinks', 'beverages', 'soft drinks', 'cola', 'water', 'juice', 'fizzy', 'pepsi', 'coca cola', 'coke', 'fanta', 'sprite', 'cans'],
+  cheese: ['cheese', 'dairy', 'cheddar', 'mozzarella', 'parmesan', 'shredded'],
+  dips: ['dips', 'sauce', 'condiments', 'mayo', 'mayonnaise', 'ketchup', 'garlic'],
   produce: ['vegetables', 'produce', 'salad', 'lettuce', 'tomato', 'onion'],
-  meat: ['meat', 'beef', 'lamb', 'pork', 'mince'],
-  frozen: ['frozen', 'ice', 'chips', 'fries'],
-  packaging: ['packaging', 'boxes', 'containers', 'bags', 'napkins'],
+  meat: ['meat', 'beef', 'lamb', 'pork', 'mince', 'pepperoni', 'salami'],
+  frozen: ['frozen', 'ice', 'chips', 'fries', 'crunch'],
+  packaging: ['packaging', 'boxes', 'containers', 'bags', 'napkins', 'pizza box'],
 }
 
 // Competitor type patterns
@@ -148,7 +151,7 @@ export class ProductLevelChurnEngine {
 
     for (const order of orders) {
       const customerId = order.customer_id || order.customer || order.account
-      const product = order.product || order.item || order.category
+      const product = order.product || order.product_name || order.item || order.category
 
       if (!customerId || !product) continue
 
@@ -163,10 +166,25 @@ export class ProductLevelChurnEngine {
         customerMap.set(category, [])
       }
 
+      // Parse date - handle multiple formats
+      let dateStr = String(order.date || order.order_date || order.invoice_date || '')
+
+      // Convert "01-JAN-2025" format to ISO
+      if (typeof dateStr === 'string' && dateStr.match(/^\d{2}-[A-Z]{3}-\d{4}$/)) {
+        const months: Record<string, string> = {
+          'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+          'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+          'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+        }
+        const parts = dateStr.split('-')
+        const month = months[parts[1]] || '01'
+        dateStr = `${parts[2]}-${month}-${parts[0]}`
+      }
+
       customerMap.get(category)!.push({
-        date: order.date || order.order_date || '',
+        date: dateStr,
         quantity: Number(order.quantity || order.qty || 1),
-        value: Number(order.value || order.amount || order.total || 0),
+        value: Number(order.value || order.amount || order.total || order.net_amount || 0),
       } as Order)
     }
 
