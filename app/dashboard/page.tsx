@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Upload, TrendingDown, Package, Download, Share2 } from 'lucide-react'
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Upload, TrendingDown, Package, Download, Users, DollarSign, AlertTriangle, BarChart3, FileSpreadsheet } from 'lucide-react'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import Navbar from '@/components/Navbar'
 
-const COLORS = ['#ef4444', '#f59e0b', '#10b981']
+const COLORS = ['#ef4444', '#f59e0b', '#22c55e']
 
 export default function Dashboard() {
   const [customers, setCustomers] = useState<any[]>([])
@@ -22,10 +23,10 @@ export default function Dashboard() {
         setCustomers(json.data)
         setInsights(json.analysis)
       } else {
-        alert('❌ ' + json.error)
+        alert('Error: ' + json.error)
       }
     } catch (err) {
-      alert('❌ Error: ' + err)
+      alert('Error: ' + err)
     } finally {
       setUploading(false)
     }
@@ -45,51 +46,76 @@ export default function Dashboard() {
       a.download = `churn-analysis.${format}`
       a.click()
     } catch (err) {
-      alert('❌ Export failed')
+      alert('Export failed')
     }
   }
 
   const highRisk = customers.filter((c: any) => c.churn_risk_score >= 75).length
+  const mediumRisk = customers.filter((c: any) => c.churn_risk_score >= 50 && c.churn_risk_score < 75).length
+  const lowRisk = customers.filter((c: any) => c.churn_risk_score < 50).length
   const roi = insights?.roi_analysis || {}
   const productLoss = insights?.product_loss_analysis || []
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="bg-gradient-to-r from-purple-700 to-blue-700 text-white sticky top-0 z-50 shadow-2xl">
-        <div className="max-w-7xl mx-auto px-8 py-8">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold">🏆 PLCAA Enterprise Edition</h1>
-              <p className="text-purple-100 mt-2">Industry-Standard AI Churn Detection</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      <Navbar />
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <BarChart3 className="w-6 h-6 text-white" />
             </div>
-            {customers.length > 0 && (
-              <div className="flex gap-3">
-                <button onClick={() => exportData('csv')} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                  <Download className="w-4 h-4" /> CSV
-                </button>
-                <button onClick={() => exportData('json')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                  <Download className="w-4 h-4" /> JSON
-                </button>
-              </div>
-            )}
+            <div>
+              <h1 className="text-3xl font-bold text-white">Customer Churn Analysis</h1>
+              <p className="text-gray-400">AI-powered customer retention insights</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8">
-        <div className="bg-gradient-to-r from-purple-800 to-blue-800 rounded-2xl shadow-2xl p-8 mb-8 border border-purple-600">
-          <form onSubmit={handleUpload} className="flex items-center justify-between gap-6">
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                <Upload className="w-8 h-8" /> Enterprise Analysis
-              </h2>
-              <p className="text-purple-200 mt-2">Upload CSV/JSON - See Product Loss & Revenue Impact</p>
-            </div>
-            <div className="flex gap-4">
-              <input type="file" name="file" accept=".json,.csv" required className="px-4 py-3 border-2 border-purple-400 rounded-lg text-white bg-purple-700" />
-              <button type="submit" disabled={uploading} className="bg-white text-purple-900 px-8 py-3 rounded-lg font-bold hover:bg-purple-50 disabled:opacity-50">
-                {uploading ? '⏳ Analyzing...' : '🚀 Analyze'}
-              </button>
+        {/* Upload Section */}
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-3xl p-8 mb-8 border border-white/10 shadow-2xl">
+          <form onSubmit={handleUpload}>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-white flex items-center gap-3 mb-2">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-400" />
+                  Upload Customer Data
+                </h2>
+                <p className="text-gray-400 text-sm">
+                  Accepts CSV or JSON with customer metrics and transaction history
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="relative cursor-pointer px-6 py-3 rounded-xl border-2 border-dashed border-gray-600 hover:border-gray-500 bg-slate-800/50 transition-all">
+                  <input
+                    type="file"
+                    name="file"
+                    accept=".json,.csv"
+                    required
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <span className="flex items-center gap-2 text-gray-300">
+                    <Upload className="w-5 h-5 text-blue-400" />
+                    Choose File
+                  </span>
+                </label>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-3 rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Analyzing...
+                    </span>
+                  ) : (
+                    'Analyze'
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -97,109 +123,223 @@ export default function Dashboard() {
         {customers.length > 0 && insights ? (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-5 gap-4 mb-8">
-              <div className="bg-white bg-opacity-10 rounded-xl shadow-lg p-6 border border-purple-500 text-white">
-                <p className="text-purple-300 text-sm">Total Customers</p>
-                <p className="text-4xl font-bold mt-3">{customers.length}</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+                <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                  <Users className="w-4 h-4" />
+                  Customers
+                </div>
+                <p className="text-3xl font-bold text-white">{customers.length}</p>
               </div>
-              <div className="bg-red-500 bg-opacity-20 rounded-xl shadow-lg p-6 border border-red-500 text-white">
-                <p className="text-red-300 text-sm font-bold">🚨 High Risk</p>
-                <p className="text-4xl font-bold mt-3">{highRisk}</p>
+
+              <div className="bg-gradient-to-br from-red-500/20 to-red-600/10 backdrop-blur-xl rounded-2xl p-5 border border-red-500/30">
+                <div className="flex items-center gap-2 text-red-400 text-sm mb-1">
+                  <AlertTriangle className="w-4 h-4" />
+                  High Risk
+                </div>
+                <p className="text-3xl font-bold text-white">{highRisk}</p>
               </div>
-              <div className="bg-orange-500 bg-opacity-20 rounded-xl shadow-lg p-6 border border-orange-500 text-white">
-                <p className="text-orange-300 text-sm font-bold">💰 Revenue Risk</p>
-                <p className="text-3xl font-bold mt-3">£{((roi.revenue_at_risk || 0) / 1000000).toFixed(1)}M</p>
+
+              <div className="bg-gradient-to-br from-amber-500/20 to-amber-600/10 backdrop-blur-xl rounded-2xl p-5 border border-amber-500/30">
+                <div className="flex items-center gap-2 text-amber-400 text-sm mb-1">
+                  <DollarSign className="w-4 h-4" />
+                  Revenue Risk
+                </div>
+                <p className="text-2xl font-bold text-white">
+                  £{((roi.revenue_at_risk || 0) / 1000000).toFixed(1)}M
+                </p>
               </div>
-              <div className="bg-green-500 bg-opacity-20 rounded-xl shadow-lg p-6 border border-green-500 text-white">
-                <p className="text-green-300 text-sm font-bold">💵 Est. Saved</p>
-                <p className="text-3xl font-bold mt-3">£{((roi.estimated_revenue_saved || 0) / 1000000).toFixed(1)}M</p>
+
+              <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 backdrop-blur-xl rounded-2xl p-5 border border-green-500/30">
+                <div className="flex items-center gap-2 text-green-400 text-sm mb-1">
+                  <TrendingDown className="w-4 h-4" />
+                  Est. Saved
+                </div>
+                <p className="text-2xl font-bold text-white">
+                  £{((roi.estimated_revenue_saved || 0) / 1000000).toFixed(1)}M
+                </p>
               </div>
-              <div className="bg-blue-500 bg-opacity-20 rounded-xl shadow-lg p-6 border border-blue-500 text-white">
-                <p className="text-blue-300 text-sm font-bold">📊 ROI</p>
-                <p className="text-4xl font-bold mt-3">{Math.min(500, (roi.roi_percentage || 0)).toFixed(0)}%</p>
+
+              <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 backdrop-blur-xl rounded-2xl p-5 border border-blue-500/30">
+                <div className="flex items-center gap-2 text-blue-400 text-sm mb-1">
+                  <BarChart3 className="w-4 h-4" />
+                  ROI
+                </div>
+                <p className="text-3xl font-bold text-white">
+                  {Math.min(500, (roi.roi_percentage || 0)).toFixed(0)}%
+                </p>
               </div>
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-purple-500">
-                <h3 className="text-white font-bold mb-4">Customer Risk Distribution</h3>
-                <ResponsiveContainer width="100%" height={300}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+                <h3 className="text-lg font-semibold text-white mb-4">Risk Distribution</h3>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie data={insights.charts?.risk_distribution || []} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={100} fill="#8884d8" dataKey="value">
-                      {(insights.charts?.risk_distribution || []).map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Pie
+                      data={[
+                        { name: 'High Risk', value: highRisk, color: '#ef4444' },
+                        { name: 'Medium Risk', value: mediumRisk, color: '#f59e0b' },
+                        { name: 'Low Risk', value: lowRisk, color: '#22c55e' },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {[
+                        { color: '#ef4444' },
+                        { color: '#f59e0b' },
+                        { color: '#22c55e' },
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px'
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
+                <div className="flex justify-center gap-6 mt-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span className="text-gray-400 text-sm">High: {highRisk}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <span className="text-gray-400 text-sm">Medium: {mediumRisk}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-gray-400 text-sm">Low: {lowRisk}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-white bg-opacity-5 rounded-xl shadow-lg p-6 border border-purple-500">
-                <h3 className="text-white font-bold mb-4">Revenue Exposure by Risk</h3>
-                <ResponsiveContainer width="100%" height={300}>
+              <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+                <h3 className="text-lg font-semibold text-white mb-4">Revenue by Risk Level</h3>
+                <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={insights.charts?.revenue_by_risk || []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                    <XAxis dataKey="name" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569' }} />
-                    <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="name" stroke="#64748b" />
+                    <YAxis stroke="#64748b" tickFormatter={(v) => `£${(v/1000)}K`} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '12px'
+                      }}
+                      formatter={(value: number) => [`£${value.toLocaleString()}`, 'Revenue']}
+                    />
+                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                      <Cell fill="#ef4444" />
+                      <Cell fill="#f59e0b" />
+                      <Cell fill="#22c55e" />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             {/* Product Loss */}
-            <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-8 mb-8 border border-purple-500">
-              <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <Package className="w-8 h-8 text-orange-400" /> 📦 Products Customers Are Losing
-              </h3>
-              {productLoss.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
-                  {productLoss.map((p: any, i: number) => (
-                    <div key={i} className="bg-red-900 bg-opacity-20 rounded-lg p-6 border border-red-700">
-                      <p className="text-white font-bold text-lg">{p.product}</p>
-                      <p className="text-red-400 text-sm mt-3"><span className="font-bold">{p.customers_losing}</span> customers losing</p>
-                      <p className="text-red-400 text-sm mt-2"><span className="font-bold">£{(p.revenue_loss / 1000).toFixed(0)}K</span> loss</p>
+            {productLoss.length > 0 && (
+              <div className="bg-gradient-to-br from-red-900/20 to-orange-900/10 backdrop-blur-xl rounded-2xl p-8 mb-8 border border-red-500/20">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-white flex items-center gap-3">
+                    <Package className="w-6 h-6 text-red-400" />
+                    Products at Risk
+                  </h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => exportData('csv')}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      CSV
+                    </button>
+                    <button
+                      onClick={() => exportData('json')}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 text-white hover:bg-white/20 transition-all text-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      JSON
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {productLoss.slice(0, 6).map((p: any, i: number) => (
+                    <div key={i} className="bg-slate-900/50 rounded-xl p-5 border border-white/5 hover:border-red-500/30 transition-all">
+                      <p className="text-white font-semibold text-lg mb-3">{p.product}</p>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Customers affected</span>
+                        <span className="text-red-400 font-medium">{p.customers_losing}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mt-2">
+                        <span className="text-gray-400">Revenue loss</span>
+                        <span className="text-amber-400 font-medium">£{(p.revenue_loss / 1000).toFixed(0)}K</span>
+                      </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-purple-300">No product losses detected</p>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* High Risk Table */}
-            <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-8 border border-purple-500 overflow-x-auto">
-              <h3 className="text-2xl font-bold text-white mb-6">👥 High Risk Customers</h3>
-              <table className="w-full text-white text-sm">
-                <thead className="border-b border-purple-500">
-                  <tr>
-                    <th className="text-left py-3 px-4">Customer</th>
-                    <th className="text-center py-3 px-4">Risk</th>
-                    <th className="text-right py-3 px-4">Revenue</th>
-                    <th className="text-center py-3 px-4">Trend</th>
-                    <th className="text-right py-3 px-4">Loss Impact</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customers.filter((c: any) => c.churn_risk_score >= 75).slice(0, 15).map((c: any, i: number) => (
-                    <tr key={i} className="border-b border-purple-500 border-opacity-30 hover:bg-purple-500 hover:bg-opacity-10">
-                      <td className="py-3 px-4 font-semibold">{c.customer_id}</td>
-                      <td className="py-3 px-4 text-center"><span className="bg-red-900 text-red-200 px-3 py-1 rounded font-bold">{c.churn_risk_score.toFixed(0)}</span></td>
-                      <td className="py-3 px-4 text-right">£{c.clv.toLocaleString()}</td>
-                      <td className="py-3 px-4 text-center text-orange-400">{c.trend_direction}</td>
-                      <td className="py-3 px-4 text-right text-red-400 font-bold">£{c.product_loss_revenue.toLocaleString()}</td>
+            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-white flex items-center gap-3">
+                  <AlertTriangle className="w-6 h-6 text-red-400" />
+                  High Risk Customers
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-slate-900/50">
+                      <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Customer</th>
+                      <th className="text-center py-4 px-5 text-gray-400 font-medium text-sm">Risk Score</th>
+                      <th className="text-right py-4 px-5 text-gray-400 font-medium text-sm">Revenue</th>
+                      <th className="text-center py-4 px-5 text-gray-400 font-medium text-sm">Trend</th>
+                      <th className="text-right py-4 px-5 text-gray-400 font-medium text-sm">Loss Impact</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {customers.filter((c: any) => c.churn_risk_score >= 75).slice(0, 15).map((c: any, i: number) => (
+                      <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="py-4 px-5 text-white font-medium">{c.customer_id}</td>
+                        <td className="py-4 px-5 text-center">
+                          <span className="px-3 py-1.5 rounded-lg font-semibold text-sm bg-red-500/20 text-red-400">
+                            {c.churn_risk_score.toFixed(0)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-5 text-right text-gray-300">£{c.clv?.toLocaleString()}</td>
+                        <td className="py-4 px-5 text-center text-amber-400">{c.trend_direction}</td>
+                        <td className="py-4 px-5 text-right text-red-400 font-medium">
+                          £{c.product_loss_revenue?.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         ) : (
-          <div className="bg-white bg-opacity-5 rounded-2xl shadow-2xl p-16 text-center border border-purple-500">
-            <p className="text-purple-300 text-xl">👆 Upload your data to see analysis</p>
+          <div className="bg-gradient-to-br from-slate-800/30 to-slate-900/30 backdrop-blur-xl rounded-3xl p-16 text-center border border-white/10">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-400/20 to-purple-500/20 flex items-center justify-center mx-auto mb-6">
+              <BarChart3 className="w-10 h-10 text-blue-400" />
+            </div>
+            <h3 className="text-2xl font-semibold text-white mb-3">Upload Your Customer Data</h3>
+            <p className="text-gray-400 max-w-md mx-auto">
+              Analyze customer behavior and predict churn risk with AI-powered insights
+            </p>
           </div>
         )}
       </div>
