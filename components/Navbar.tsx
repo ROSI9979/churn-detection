@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { LogOut, User, ChevronDown, BarChart3, Package, Home, Settings } from 'lucide-react'
+import { LogOut, User, ChevronDown, BarChart3, Package, Home, Settings, Mail } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -76,6 +76,17 @@ export default function Navbar() {
             >
               <Package className="w-4 h-4" />
               Product Churn
+            </Link>
+            <Link
+              href="/email-import"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                isActive('/email-import')
+                  ? 'bg-gradient-to-r from-red-500/20 to-pink-500/20 text-white border border-red-500/30'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              Email Import
             </Link>
           </div>
 
