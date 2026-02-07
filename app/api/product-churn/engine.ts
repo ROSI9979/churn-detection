@@ -24,6 +24,7 @@ const COLUMN_PATTERNS = {
 export interface CategoryAlert {
   customer_id: string
   category: string
+  products: string[]  // Actual product names in this category
   signal_type: 'stopped' | 'declining' | 'irregular'
   severity: 'critical' | 'warning' | 'watch'
   baseline_quantity: number
@@ -281,11 +282,15 @@ export class ProductLevelChurnEngine {
     return dateStr
   }
 
+  // Track products per customer per category
+  private categoryProducts: Map<string, Map<string, Set<string>>> = new Map()
+
   private parseOrders(orders: Order[]): Map<string, Map<string, Order[]>> {
     // Auto-detect schema from first row
     this.detectSchema(orders)
 
     const grouped = new Map<string, Map<string, Order[]>>()
+    this.categoryProducts = new Map()
 
     for (const order of orders) {
       const customerId = this.getField(order, 'customer')
@@ -294,15 +299,23 @@ export class ProductLevelChurnEngine {
       if (!customerId || !product) continue
 
       const category = this.normalizeCategory(product)
+      const customerKey = String(customerId)
 
-      if (!grouped.has(String(customerId))) {
-        grouped.set(String(customerId), new Map())
+      if (!grouped.has(customerKey)) {
+        grouped.set(customerKey, new Map())
+        this.categoryProducts.set(customerKey, new Map())
       }
 
-      const customerMap = grouped.get(String(customerId))!
+      const customerMap = grouped.get(customerKey)!
+      const customerProducts = this.categoryProducts.get(customerKey)!
+
       if (!customerMap.has(category)) {
         customerMap.set(category, [])
+        customerProducts.set(category, new Set())
       }
+
+      // Track the actual product name
+      customerProducts.get(category)!.add(String(product))
 
       const dateVal = this.getField(order, 'date')
       const dateStr = this.normalizeDateString(dateVal)
@@ -318,6 +331,14 @@ export class ProductLevelChurnEngine {
     }
 
     return grouped
+  }
+
+  // Get products for a customer's category
+  private getProductsForCategory(customerId: string, category: string): string[] {
+    const customerProducts = this.categoryProducts.get(customerId)
+    if (!customerProducts) return []
+    const products = customerProducts.get(category)
+    return products ? Array.from(products) : []
   }
 
   private parseDate(dateStr: string): Date | null {
@@ -559,6 +580,7 @@ export class ProductLevelChurnEngine {
           alerts.push({
             customer_id: customerId,
             category,
+            products: this.getProductsForCategory(customerId, category),
             signal_type: trend as 'stopped' | 'declining',
             severity,
             baseline_quantity: Math.round(baseline.qty * 100) / 100,

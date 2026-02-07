@@ -15,6 +15,7 @@ const CATEGORY_COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', 
 interface CategoryAlert {
   customer_id: string
   category: string
+  products: string[]  // Actual product names
   signal_type: string
   severity: 'critical' | 'warning' | 'watch'
   baseline_quantity: number
@@ -87,10 +88,11 @@ export default function ProductChurnDashboard() {
   const exportCSV = () => {
     if (!analysis) return
 
-    const headers = ['Customer', 'Category', 'Severity', 'Drop %', 'Lost Revenue', 'Discount', 'Action']
+    const headers = ['Customer', 'Category', 'Products', 'Severity', 'Drop %', 'Lost Revenue', 'Discount', 'Action']
     const rows = analysis.alerts.map(a => [
       a.customer_id,
       a.category,
+      (a.products || []).join('; '),
       a.severity,
       a.drop_percentage + '%',
       '£' + a.estimated_lost_revenue,
@@ -332,6 +334,7 @@ export default function ProductChurnDashboard() {
                   <tr>
                     <th className="text-left py-3 px-4">Customer</th>
                     <th className="text-left py-3 px-4">Category</th>
+                    <th className="text-left py-3 px-4">Products</th>
                     <th className="text-center py-3 px-4">Severity</th>
                     <th className="text-right py-3 px-4">Baseline Qty</th>
                     <th className="text-right py-3 px-4">Current Qty</th>
@@ -349,6 +352,10 @@ export default function ProductChurnDashboard() {
                     >
                       <td className="py-3 px-4 font-semibold">{alert.customer_id}</td>
                       <td className="py-3 px-4 capitalize">{alert.category}</td>
+                      <td className="py-3 px-4 text-indigo-300 text-xs max-w-xs">
+                        {alert.products?.slice(0, 3).join(', ')}
+                        {alert.products?.length > 3 && ` +${alert.products.length - 3} more`}
+                      </td>
                       <td className="py-3 px-4 text-center">
                         <span
                           className="px-3 py-1 rounded font-bold text-xs"
