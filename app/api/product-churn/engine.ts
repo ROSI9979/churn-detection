@@ -22,7 +22,8 @@ const COLUMN_PATTERNS = {
 }
 
 // Columns to exclude from product detection (codes, IDs)
-const PRODUCT_EXCLUDE_PATTERNS = /code|id|number|num|sku$/i
+// Match columns ending with _code, _id, _number, _num, _sku or just "code", "id" etc
+const PRODUCT_EXCLUDE_PATTERNS = /_code$|_id$|_number$|_num$|_sku$|^code$|^id$|^sku$/i
 
 export interface CategoryAlert {
   customer_id: string
