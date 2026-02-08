@@ -115,6 +115,36 @@ const COMPETITOR_PATTERNS: Record<string, {
   },
 }
 
+// Product frequency types for smarter thresholds
+type ProductFrequency = 'core' | 'regular' | 'occasional'
+
+// Dynamic thresholds based on product frequency
+const FREQUENCY_THRESHOLDS: Record<ProductFrequency, {
+  stopped_weeks: number
+  decline_pct: number
+  critical_decline_pct: number
+  min_orders: number  // Minimum orders in baseline to flag
+}> = {
+  core: {      // Products ordered weekly/bi-weekly
+    stopped_weeks: 4,
+    decline_pct: 50,
+    critical_decline_pct: 75,
+    min_orders: 4,
+  },
+  regular: {   // Products ordered monthly
+    stopped_weeks: 8,
+    decline_pct: 60,
+    critical_decline_pct: 85,
+    min_orders: 3,
+  },
+  occasional: { // Products ordered every few months
+    stopped_weeks: 16,
+    decline_pct: 75,
+    critical_decline_pct: 95,
+    min_orders: 2,
+  }
+}
+
 export class ProductLevelChurnEngine {
   private lookbackWeeks: number
   private baselineWeeks: number
@@ -134,11 +164,42 @@ export class ProductLevelChurnEngine {
   constructor(lookbackWeeks = 12, baselineWeeks = 8) {
     this.lookbackWeeks = lookbackWeeks
     this.baselineWeeks = baselineWeeks
+    // Default thresholds (overridden per product frequency)
     this.thresholds = {
-      stopped_weeks: 4,
-      decline_pct: 40,
-      critical_decline_pct: 70,
+      stopped_weeks: 6,
+      decline_pct: 50,
+      critical_decline_pct: 80,
     }
+  }
+
+  // Calculate average days between orders to classify product frequency
+  private classifyProductFrequency(orders: Order[]): ProductFrequency {
+    if (orders.length < 2) return 'occasional'
+
+    // Sort by date
+    const sortedOrders = [...orders].sort((a, b) =>
+      (a.date || '').localeCompare(b.date || '')
+    )
+
+    // Calculate gaps between orders
+    const gaps: number[] = []
+    for (let i = 1; i < sortedOrders.length; i++) {
+      const prevDate = this.parseDate(sortedOrders[i - 1].date || '')
+      const currDate = this.parseDate(sortedOrders[i].date || '')
+      if (prevDate && currDate) {
+        const daysDiff = (currDate.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000)
+        if (daysDiff > 0) gaps.push(daysDiff)
+      }
+    }
+
+    if (gaps.length === 0) return 'occasional'
+
+    const avgGap = gaps.reduce((a, b) => a + b, 0) / gaps.length
+
+    // Classify based on average gap between orders
+    if (avgGap <= 14) return 'core'       // Ordered every 2 weeks or more
+    if (avgGap <= 45) return 'regular'    // Ordered every 1.5 months or less
+    return 'occasional'                    // Ordered less frequently
   }
 
   // Auto-detect column names from data
@@ -421,12 +482,24 @@ export class ProductLevelChurnEngine {
     lastOrderDate: string | null,
     referenceDate: Date
   ): 'stable' | 'growing' | 'declining' | 'stopped' {
+    return this.detectTrendWithThresholds(
+      baselineQty, currentQty, lastOrderDate, referenceDate, this.thresholds
+    )
+  }
+
+  private detectTrendWithThresholds(
+    baselineQty: number,
+    currentQty: number,
+    lastOrderDate: string | null,
+    referenceDate: Date,
+    thresholds: { stopped_weeks: number; decline_pct: number; critical_decline_pct: number }
+  ): 'stable' | 'growing' | 'declining' | 'stopped' {
     // Check if stopped ordering
     if (lastOrderDate) {
       const lastDate = this.parseDate(lastOrderDate)
       if (lastDate) {
         const weeksSince = (referenceDate.getTime() - lastDate.getTime()) / (7 * 24 * 60 * 60 * 1000)
-        if (weeksSince >= this.thresholds.stopped_weeks) {
+        if (weeksSince >= thresholds.stopped_weeks) {
           return 'stopped'
         }
       }
@@ -438,8 +511,8 @@ export class ProductLevelChurnEngine {
 
     const changePct = ((currentQty - baselineQty) / baselineQty) * 100
 
-    if (changePct <= -this.thresholds.critical_decline_pct) return 'stopped'
-    if (changePct <= -this.thresholds.decline_pct) return 'declining'
+    if (changePct <= -thresholds.critical_decline_pct) return 'stopped'
+    if (changePct <= -thresholds.decline_pct) return 'declining'
     if (changePct >= 20) return 'growing'
     return 'stable'
   }
@@ -540,9 +613,17 @@ export class ProductLevelChurnEngine {
         // Sort by date descending
         catOrders.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
 
+        // Classify product frequency to use appropriate thresholds
+        const frequency = this.classifyProductFrequency(catOrders)
+        const thresholds = FREQUENCY_THRESHOLDS[frequency]
+
         const baseline = this.calculateBaseline(catOrders, refDate)
         const current = this.calculateCurrent(catOrders, refDate)
-        const trend = this.detectTrend(baseline.qty, current.qty, current.lastOrder, refDate)
+
+        // Use frequency-specific thresholds for trend detection
+        const trend = this.detectTrendWithThresholds(
+          baseline.qty, current.qty, current.lastOrder, refDate, thresholds
+        )
 
         // Build profile
         const profile: CustomerCategoryProfile = {
@@ -557,6 +638,11 @@ export class ProductLevelChurnEngine {
           volatility: 0, // Simplified for now
         }
         profiles[customerId][category] = profile
+
+        // Skip if not enough orders in history (prevents false positives)
+        if (catOrders.length < thresholds.min_orders) {
+          continue
+        }
 
         // Generate alerts for problems
         if (trend === 'stopped' || trend === 'declining') {
@@ -574,19 +660,28 @@ export class ProductLevelChurnEngine {
             }
           }
 
-          // Determine severity
+          // Use frequency-specific thresholds for severity
           let severity: 'critical' | 'warning' | 'watch'
-          if (trend === 'stopped' || dropPct >= this.thresholds.critical_decline_pct) {
+          if (trend === 'stopped' && weeksSince >= thresholds.stopped_weeks) {
+            // Only critical if truly stopped for their normal pattern
+            severity = dropPct >= thresholds.critical_decline_pct ? 'critical' : 'warning'
+          } else if (dropPct >= thresholds.critical_decline_pct) {
             severity = 'critical'
-          } else if (dropPct >= this.thresholds.decline_pct) {
+          } else if (dropPct >= thresholds.decline_pct) {
             severity = 'warning'
           } else {
             severity = 'watch'
           }
 
+          // Occasional products rarely get critical status
+          if (frequency === 'occasional' && severity === 'critical') {
+            severity = 'warning'
+          }
+
           const estimatedLoss = (baseline.value - current.value) * 4 // Monthly
           const competitor = this.inferCompetitorType(category)
-          const competitorLikely = trend === 'stopped' || dropPct > 60
+          // More conservative competitor detection
+          const competitorLikely = trend === 'stopped' && weeksSince >= thresholds.stopped_weeks && dropPct > 80
           const { discount, action } = this.generateRecommendation(
             severity, dropPct, category, competitor.type
           )
