@@ -21,6 +21,7 @@ const CATEGORY_COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', 
 
 interface CategoryAlert {
   customer_id: string
+  product_name: string
   category: string
   products: string[]
   signal_type: string
@@ -38,6 +39,7 @@ interface CategoryAlert {
 interface RetentionStrategy {
   priority: number
   customer_id: string
+  product_name: string
   category: string
   action: string
   discount: number
@@ -96,11 +98,11 @@ export default function ProductChurnDashboard() {
   const exportCSV = () => {
     if (!analysis) return
 
-    const headers = ['Customer', 'Category', 'Products', 'Severity', 'Drop %', 'Lost Revenue', 'Discount', 'Action']
+    const headers = ['Customer', 'Product', 'Category', 'Severity', 'Drop %', 'Lost Revenue', 'Discount', 'Action']
     const rows = analysis.alerts.map(a => [
       a.customer_id,
+      a.product_name,
       a.category,
-      (a.products || []).join('; '),
       a.severity,
       a.drop_percentage + '%',
       '£' + a.estimated_lost_revenue,
@@ -356,7 +358,10 @@ export default function ProductChurnDashboard() {
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-3 mb-2">
                         <span className="text-white font-semibold text-lg">{rec.customer_id}</span>
-                        <span className="bg-slate-700 text-white px-3 py-1 rounded-lg text-sm capitalize">
+                        <span className="bg-slate-700 text-white px-3 py-1 rounded-lg text-sm">
+                          {rec.product_name}
+                        </span>
+                        <span className="bg-slate-600 text-gray-300 px-2 py-0.5 rounded text-xs capitalize">
                           {rec.category}
                         </span>
                         <span className="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-lg text-sm flex items-center gap-1">
@@ -412,8 +417,8 @@ export default function ProductChurnDashboard() {
                   <thead>
                     <tr className="border-b border-white/10 bg-slate-900/50">
                       <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Customer</th>
+                      <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Product</th>
                       <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Category</th>
-                      <th className="text-left py-4 px-5 text-gray-400 font-medium text-sm">Products</th>
                       <th className="text-center py-4 px-5 text-gray-400 font-medium text-sm">Severity</th>
                       <th className="text-right py-4 px-5 text-gray-400 font-medium text-sm">Baseline</th>
                       <th className="text-right py-4 px-5 text-gray-400 font-medium text-sm">Current</th>
@@ -430,10 +435,13 @@ export default function ProductChurnDashboard() {
                         className="border-b border-white/5 hover:bg-white/5 transition-colors"
                       >
                         <td className="py-4 px-5 text-white font-medium">{alert.customer_id}</td>
-                        <td className="py-4 px-5 text-gray-300 capitalize">{alert.category}</td>
-                        <td className="py-4 px-5 text-gray-400 text-sm max-w-[200px] truncate" title={alert.products?.join(', ')}>
-                          {alert.products?.slice(0, 2).join(', ')}
-                          {alert.products?.length > 2 && <span className="text-gray-500"> +{alert.products.length - 2}</span>}
+                        <td className="py-4 px-5 text-gray-300 text-sm max-w-[250px] truncate" title={alert.product_name}>
+                          {alert.product_name}
+                        </td>
+                        <td className="py-4 px-5">
+                          <span className="bg-slate-700/50 text-gray-300 px-2 py-0.5 rounded text-xs capitalize">
+                            {alert.category}
+                          </span>
                         </td>
                         <td className="py-4 px-5 text-center">
                           <span

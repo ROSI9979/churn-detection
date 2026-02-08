@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ProductLevelChurnEngine, Order } from './engine'
 
+// Parse a CSV line handling quoted fields (commas inside quotes, escaped quotes)
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = []
+  let current = ''
+  let inQuotes = false
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"'
+          i++ // skip escaped quote
+        } else {
+          inQuotes = false
+        }
+      } else {
+        current += ch
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true
+      } else if (ch === ',') {
+        fields.push(current.trim())
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+  }
+  fields.push(current.trim())
+  return fields
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
@@ -19,10 +53,10 @@ export async function POST(request: NextRequest) {
       orders = Array.isArray(json) ? json : json.orders || json.data || []
     } else if (file.name.endsWith('.csv')) {
       const lines = text.trim().split('\n')
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+      const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase())
 
       orders = lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim())
+        const values = parseCSVLine(line)
         const obj: Record<string, any> = {}
 
         headers.forEach((header, i) => {
