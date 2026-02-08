@@ -15,11 +15,14 @@ export interface Order {
 // Smart column detection patterns (order matters - more specific first)
 const COLUMN_PATTERNS = {
   customer: /customer[_\s]?id|account[_\s]?id|client[_\s]?id|customer|account|client|buyer|party|entity|company/i,
-  product: /product[_\s]?name|product|item|sku|description|goods|material|service/i,
+  product: /product[_\s]?name|product[_\s]?description|item[_\s]?name|description|product|item|sku|goods|material|service/i,
   quantity: /quantity|qty|units|count|pieces|pcs/i,
   value: /net[_\s]?amount|total[_\s]?amount|gross[_\s]?amount|value|amount|total|price|cost|net|gross|sum|revenue|sales/i,
   date: /invoice[_\s]?date|order[_\s]?date|transaction[_\s]?date|created[_\s]?at|date|created|ordered/i,
 }
+
+// Columns to exclude from product detection (codes, IDs)
+const PRODUCT_EXCLUDE_PATTERNS = /code|id|number|num|sku$/i
 
 export interface CategoryAlert {
   customer_id: string
@@ -162,9 +165,20 @@ export class ProductLevelChurnEngine {
         this.detectedSchema.customer = col
       }
 
-      // Product field (skip if it looks like a customer field)
-      if (!this.detectedSchema.product && COLUMN_PATTERNS.product.test(colLower)) {
-        if (!COLUMN_PATTERNS.customer.test(colLower) || colLower.includes('product')) {
+      // Product field (prefer product_name over product_code)
+      if (COLUMN_PATTERNS.product.test(colLower)) {
+        // Skip if it looks like a code/id field
+        if (PRODUCT_EXCLUDE_PATTERNS.test(colLower)) {
+          continue
+        }
+        // Skip if it looks like a customer field
+        if (COLUMN_PATTERNS.customer.test(colLower) && !colLower.includes('product')) {
+          continue
+        }
+        // Prefer columns with 'name' or 'description' in them
+        if (!this.detectedSchema.product ||
+            colLower.includes('name') ||
+            colLower.includes('description')) {
           this.detectedSchema.product = col
         }
       }
