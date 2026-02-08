@@ -161,7 +161,9 @@ export class ProductLevelChurnEngine {
     date: string | null
   } | null = null
 
-  constructor(lookbackWeeks = 12, baselineWeeks = 8) {
+  constructor(lookbackWeeks = 52, baselineWeeks = 30) {
+    // Use first 7 months (30 weeks) as baseline to establish frequency patterns
+    // Look back 52 weeks (1 year) total for context
     this.lookbackWeeks = lookbackWeeks
     this.baselineWeeks = baselineWeeks
     // Default thresholds (overridden per product frequency)
@@ -427,28 +429,46 @@ export class ProductLevelChurnEngine {
   private calculateBaseline(
     orders: Order[],
     referenceDate: Date
-  ): { qty: number; value: number } {
-    const baselineStart = new Date(referenceDate)
-    baselineStart.setDate(baselineStart.getDate() - this.lookbackWeeks * 7)
+  ): { qty: number; value: number; orderCount: number } {
+    // Sort orders by date to find first 7 months of data
+    const sortedOrders = [...orders].sort((a, b) =>
+      (a.date || '').localeCompare(b.date || '')
+    )
 
-    const baselineEnd = new Date(referenceDate)
-    baselineEnd.setDate(baselineEnd.getDate() - (this.lookbackWeeks - this.baselineWeeks) * 7)
+    // Find the earliest order date
+    let earliestDate: Date | null = null
+    for (const order of sortedOrders) {
+      const d = this.parseDate(order.date || '')
+      if (d) {
+        earliestDate = d
+        break
+      }
+    }
 
-    const baselineOrders = orders.filter(o => {
+    if (!earliestDate) {
+      return { qty: 0, value: 0, orderCount: 0 }
+    }
+
+    // Use first 7 months (210 days) as baseline period
+    const baselineEnd = new Date(earliestDate)
+    baselineEnd.setDate(baselineEnd.getDate() + 210) // 7 months
+
+    const baselineOrders = sortedOrders.filter(o => {
       const orderDate = this.parseDate(o.date || '')
-      return orderDate && orderDate >= baselineStart && orderDate <= baselineEnd
+      return orderDate && orderDate >= earliestDate! && orderDate <= baselineEnd
     })
 
-    // Fall back to first half of orders if no data in baseline window
-    const ordersToUse = baselineOrders.length > 0
-      ? baselineOrders
-      : orders.slice(0, Math.ceil(orders.length / 2))
+    // Calculate weeks in baseline period
+    const actualBaselineWeeks = baselineOrders.length > 0 ? 30 : 1 // ~7 months
 
-    const totalQty = ordersToUse.reduce((sum, o) => sum + (o.quantity || 0), 0)
-    const totalValue = ordersToUse.reduce((sum, o) => sum + (o.value || 0), 0)
-    const weeks = Math.max(1, this.baselineWeeks)
+    const totalQty = baselineOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)
+    const totalValue = baselineOrders.reduce((sum, o) => sum + (o.value || 0), 0)
 
-    return { qty: totalQty / weeks, value: totalValue / weeks }
+    return {
+      qty: totalQty / actualBaselineWeeks,
+      value: totalValue / actualBaselineWeeks,
+      orderCount: baselineOrders.length
+    }
   }
 
   private calculateCurrent(
@@ -639,8 +659,9 @@ export class ProductLevelChurnEngine {
         }
         profiles[customerId][category] = profile
 
-        // Skip if not enough orders in history (prevents false positives)
-        if (catOrders.length < thresholds.min_orders) {
+        // Skip if not enough orders in baseline period (prevents false positives)
+        // Use the order count from first 7 months to determine if it's a regular product
+        if (baseline.orderCount < thresholds.min_orders) {
           continue
         }
 
