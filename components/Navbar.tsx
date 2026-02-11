@@ -1,7 +1,7 @@
 'use client'
 
 import { useSession, signOut } from 'next-auth/react'
-import { LogOut, User, ChevronDown, BarChart3, Package, Home, Settings, Mail } from 'lucide-react'
+import { LogOut, ChevronDown, Package, Home, Settings, Mail, TrendingUp } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -26,19 +26,19 @@ export default function Navbar() {
   const isActive = (path: string) => pathname === path
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/80 border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-6">
+    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#0a0e1a]/80 border-b border-white/[0.06]">
+      <div className="max-w-[1400px] mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/40 transition-shadow">
-              <BarChart3 className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/20 group-hover:shadow-violet-500/30 transition-shadow">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
             <div>
-              <span className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                Churn Intelligence
+              <span className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                RetainIQ
               </span>
-              <p className="text-[10px] text-gray-500 -mt-1 tracking-wider uppercase">Analytics Platform</p>
+              <p className="text-[10px] text-slate-600 -mt-0.5 tracking-wider uppercase">Revenue Recovery</p>
             </div>
           </Link>
 
@@ -48,41 +48,30 @@ export default function Navbar() {
               href="/"
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive('/')
-                  ? 'bg-white/10 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-white/[0.08] text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Home className="w-4 h-4" />
               Home
             </Link>
             <Link
-              href="/dashboard"
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                isActive('/dashboard')
-                  ? 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-white border border-blue-500/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              Customer Churn
-            </Link>
-            <Link
               href="/product-churn"
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive('/product-churn')
-                  ? 'bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 text-white border border-emerald-500/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-white border border-violet-500/30'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Package className="w-4 h-4" />
-              Product Churn
+              Lost Product Detection
             </Link>
             <Link
               href="/email-import"
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 isActive('/email-import')
                   ? 'bg-gradient-to-r from-red-500/20 to-pink-500/20 text-white border border-red-500/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               <Mail className="w-4 h-4" />
@@ -93,47 +82,47 @@ export default function Navbar() {
           {/* User Menu */}
           <div className="flex items-center gap-4">
             {status === 'loading' ? (
-              <div className="w-32 h-10 bg-white/5 rounded-xl animate-pulse"></div>
+              <div className="w-32 h-10 bg-white/[0.04] rounded-xl animate-pulse"></div>
             ) : session ? (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setShowDropdown(!showDropdown)}
                   className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all ${
                     showDropdown
-                      ? 'bg-white/10 ring-2 ring-emerald-500/50'
-                      : 'hover:bg-white/5'
+                      ? 'bg-white/[0.08] ring-2 ring-violet-500/50'
+                      : 'hover:bg-white/[0.04]'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white font-semibold text-sm shadow-lg">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-semibold text-sm shadow-lg">
                     {(session.user?.name?.[0] || session.user?.email?.[0] || 'U').toUpperCase()}
                   </div>
                   <div className="hidden sm:block text-left">
                     <p className="text-white text-sm font-medium max-w-[120px] truncate">
                       {session.user?.name || 'User'}
                     </p>
-                    <p className="text-gray-500 text-xs max-w-[120px] truncate">
+                    <p className="text-slate-500 text-xs max-w-[120px] truncate">
                       {session.user?.email}
                     </p>
                   </div>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                 </button>
 
                 {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-64 bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 py-2 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-white/10 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10">
+                  <div className="absolute right-0 mt-2 w-64 bg-[#1a1f36]/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/[0.08] py-2 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-white/[0.06] bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10">
                       <p className="text-white font-semibold truncate">
                         {session.user?.name || 'User'}
                       </p>
-                      <p className="text-gray-400 text-sm truncate">
+                      <p className="text-slate-400 text-sm truncate">
                         {session.user?.email}
                       </p>
                     </div>
                     <div className="py-2">
                       <button
                         onClick={() => {}}
-                        className="w-full px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 flex items-center gap-3 transition-colors"
+                        className="w-full px-4 py-2.5 text-left text-slate-300 hover:bg-white/[0.04] flex items-center gap-3 transition-colors"
                       >
-                        <Settings className="w-4 h-4 text-gray-500" />
+                        <Settings className="w-4 h-4 text-slate-500" />
                         Settings
                       </button>
                       <button
@@ -149,7 +138,7 @@ export default function Navbar() {
               </div>
             ) : (
               <Link href="/auth/signin">
-                <button className="bg-gradient-to-r from-emerald-500 to-cyan-500 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-emerald-500/25 transition-all hover:-translate-y-0.5">
+                <button className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-violet-500/25 transition-all hover:-translate-y-0.5">
                   Sign In
                 </button>
               </Link>

@@ -207,7 +207,7 @@ export default function ProductChurnDashboard() {
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = 'product-churn-alerts.csv'; a.click()
+    a.href = url; a.download = 'lost-product-alerts.csv'; a.click()
   }
 
   // ─── Chart Data ──────────────────────────────────────────────────────────
@@ -263,10 +263,10 @@ export default function ProductChurnDashboard() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white tracking-tight">
-                Product Churn Intelligence
+                Lost Product Detection
               </h1>
               <p className="text-slate-400 text-sm mt-0.5">
-                Detect competitor losses • Prioritise retention calls • Recover revenue
+                Find competitor losses • Prioritise calls • Recover revenue
               </p>
             </div>
           </div>
@@ -486,7 +486,7 @@ export default function ProductChurnDashboard() {
                   <div className="bg-[#12162a] rounded-2xl p-6 border border-white/[0.06]">
                     <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                       <Shield className="w-4 h-4 text-violet-400" />
-                      Churn Reasons
+                      Loss Reasons
                     </h3>
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
@@ -879,7 +879,7 @@ export default function ProductChurnDashboard() {
               </div>
               <h3 className="text-2xl font-bold text-white mb-3">Upload Your Order History</h3>
               <p className="text-slate-400 max-w-lg mx-auto mb-8 text-sm leading-relaxed">
-                Detect which products your customers are buying from competitors.
+                Find which products your customers are getting from competitors.
                 Get a prioritised call list with recommended discounts to win them back.
               </p>
               <div className="flex flex-wrap justify-center gap-2 mb-8">

@@ -2,7 +2,7 @@
 
 import Navbar from '@/components/Navbar'
 import Link from 'next/link'
-import { BarChart3, Package, ArrowRight, Shield, Phone, Percent, TrendingDown, Users, Zap, ChevronRight, DollarSign } from 'lucide-react'
+import { Package, ArrowRight, Shield, Phone, Percent, Users, Zap, ChevronRight, DollarSign, TrendingUp } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -24,7 +24,7 @@ export default function Home() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 mb-8">
             <Zap className="w-3.5 h-3.5 text-violet-400" />
-            <span className="text-xs font-medium text-violet-300 tracking-wide">AI-Powered Revenue Intelligence</span>
+            <span className="text-xs font-medium text-violet-300 tracking-wide">AI-Powered Revenue Recovery for B2B Wholesalers</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-[1.1] tracking-tight">
@@ -36,32 +36,25 @@ export default function Home() {
           </h1>
 
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Detect exactly which products your B2B customers stopped buying,
-            why they left, and who to call first to win them back.
+            Detect exactly which products your customers stopped buying,
+            who took the business, and get a daily call list to win them back.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
+          {/* CTA Button */}
+          <div className="flex justify-center mb-20">
             <Link href="/product-churn"
-              className="group inline-flex items-center gap-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:shadow-xl hover:shadow-violet-500/20 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
+              className="group inline-flex items-center gap-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-10 py-4 rounded-2xl text-lg font-semibold hover:shadow-xl hover:shadow-violet-500/20 transition-all duration-300 hover:-translate-y-0.5 active:scale-[0.98]"
             >
-              <Package className="w-5 h-5" />
-              Product Churn Detection
+              <TrendingUp className="w-5 h-5" />
+              Detect Lost Revenue
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link href="/dashboard"
-              className="group inline-flex items-center gap-3 bg-white/[0.05] text-white px-8 py-4 rounded-2xl text-lg font-semibold border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-300 hover:-translate-y-0.5"
-            >
-              <BarChart3 className="w-5 h-5 text-slate-400" />
-              Customer Churn
-              <ArrowRight className="w-5 h-5 text-slate-500 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
           {/* ─── Stats Row ────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-20">
             {[
-              { value: '2 sec', label: 'Analysis Time', color: 'text-violet-400', desc: 'Upload → results instantly' },
+              { value: '2 sec', label: 'Analysis Time', color: 'text-violet-400', desc: 'Upload CSV → instant results' },
               { value: '£910', label: 'Found Per Customer', color: 'text-red-400', desc: 'Average competitor loss detected' },
               { value: '20+', label: 'Products Tracked', color: 'text-fuchsia-400', desc: 'Per customer, individually' },
               { value: '98/100', label: 'Priority Score', color: 'text-amber-400', desc: 'AI-ranked call urgency' },
@@ -112,7 +105,6 @@ export default function Home() {
               const Icon = item.icon
               return (
                 <div key={i} className="relative bg-[#12162a] rounded-2xl p-8 border border-white/[0.06] hover:border-violet-500/15 transition-all duration-300 group">
-                  {/* Step number */}
                   <span className="text-[80px] font-black text-white/[0.03] absolute top-4 right-6 leading-none select-none">
                     {item.step}
                   </span>
@@ -184,7 +176,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── Scale Section (Booker Problem) ─────────────────────────────── */}
+        {/* ─── Scale Section ──────────────────────────────────────────────── */}
         <section className="max-w-6xl mx-auto px-6 pb-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-white mb-3">Built for Scale</h2>
@@ -277,11 +269,11 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-                <BarChart3 className="w-4 h-4 text-white" />
+                <TrendingUp className="w-4 h-4 text-white" />
               </div>
-              <span className="text-sm font-semibold text-slate-500">Churn Intelligence</span>
+              <span className="text-sm font-semibold text-slate-500">RetainIQ</span>
             </div>
-            <p className="text-xs text-slate-600">Built for B2B wholesalers</p>
+            <p className="text-xs text-slate-600">Revenue Recovery for B2B Wholesalers</p>
           </div>
         </footer>
       </div>
