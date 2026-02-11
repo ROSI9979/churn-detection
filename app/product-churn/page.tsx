@@ -284,7 +284,7 @@ export default function ProductChurnDashboard() {
                   <FileSpreadsheet className="w-5 h-5 text-violet-400" />
                   Upload Order History
                 </h2>
-                <p className="text-slate-500 text-sm">
+                <p className="text-slate-400 text-sm">
                   CSV or JSON — invoice_date, customer_id, product_name, quantity, unit_price
                 </p>
               </div>
@@ -565,7 +565,7 @@ export default function ProductChurnDashboard() {
                             </span>
                           </div>
                           <p className="text-slate-400 text-sm leading-relaxed">{rec.action}</p>
-                          <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                          <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                             <span className="flex items-center gap-1">
                               <Percent className="w-3 h-3" />
                               <span className="text-amber-400">{rec.discount}%</span> discount
@@ -594,7 +594,7 @@ export default function ProductChurnDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-semibold text-white">Priority Call List</h3>
-                    <p className="text-sm text-slate-500 mt-0.5">
+                    <p className="text-sm text-slate-400 mt-0.5">
                       Ranked by potential recovery — who to call first
                     </p>
                   </div>
@@ -666,7 +666,7 @@ export default function ProductChurnDashboard() {
                                   </p>
                                   {item.top_lost_products.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-                                      <span className="text-[10px] uppercase tracking-wider text-slate-600 mr-1">Lost:</span>
+                                      <span className="text-[10px] uppercase tracking-wider text-slate-500 mr-1">Lost:</span>
                                       {item.top_lost_products.map((p, j) => (
                                         <span key={j} className="text-xs px-2 py-0.5 rounded-md bg-red-500/10 text-red-300 border border-red-500/10 truncate max-w-[200px]" title={p}>
                                           {p}
@@ -680,15 +680,15 @@ export default function ProductChurnDashboard() {
                               {/* Right: Numbers */}
                               <div className="flex items-center gap-6 flex-shrink-0">
                                 <div className="text-right">
-                                  <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Competitor Loss</p>
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Competitor Loss</p>
                                   <p className="text-lg font-bold text-red-400">£{item.competitor_loss.toLocaleString()}<span className="text-xs font-normal text-slate-500">/mo</span></p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Current Spend</p>
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Current Spend</p>
                                   <p className="text-lg font-bold text-white">£{item.customer_monthly_spend.toLocaleString()}<span className="text-xs font-normal text-slate-500">/mo</span></p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-[10px] uppercase tracking-wider text-slate-600 mb-0.5">Alerts</p>
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Alerts</p>
                                   <div className="flex items-center gap-1.5 justify-end">
                                     <span className="text-lg font-bold text-white">{item.alerts_count}</span>
                                     {item.competitor_alerts > 0 && (
@@ -776,7 +776,7 @@ export default function ProductChurnDashboard() {
                     {(selectedCustomer || filterSeverity || filterReason) && (
                       <button
                         onClick={() => { setSelectedCustomer(null); setFilterSeverity(null); setFilterReason(null) }}
-                        className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-slate-500 hover:text-white transition-all"
+                        className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white transition-all"
                       >
                         <X className="w-3 h-3" />
                         Clear
@@ -784,7 +784,7 @@ export default function ProductChurnDashboard() {
                     )}
                   </div>
 
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-slate-400">
                     {filteredAlerts.length} alert{filteredAlerts.length !== 1 ? 's' : ''}
                   </div>
                 </div>
@@ -857,7 +857,7 @@ export default function ProductChurnDashboard() {
                   </div>
                   {filteredAlerts.length > 50 && (
                     <div className="px-4 py-3 border-t border-white/[0.04] text-center">
-                      <p className="text-slate-500 text-xs">
+                      <p className="text-slate-400 text-xs">
                         Showing 50 of {filteredAlerts.length} alerts ·
                         <button onClick={exportCSV} className="text-violet-400 ml-1 hover:underline">Export all</button>
                       </p>
@@ -884,7 +884,7 @@ export default function ProductChurnDashboard() {
               </p>
               <div className="flex flex-wrap justify-center gap-2 mb-8">
                 {['customer_id', 'product_name', 'quantity', 'unit_price', 'invoice_date'].map(col => (
-                  <span key={col} className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-slate-500 text-xs font-mono border border-white/[0.06]">
+                  <span key={col} className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-slate-400 text-xs font-mono border border-white/[0.06]">
                     {col}
                   </span>
                 ))}
@@ -899,7 +899,7 @@ export default function ProductChurnDashboard() {
                   return (
                     <div key={i} className="text-center">
                       <Icon className={`w-5 h-5 mx-auto mb-2 ${feat.color}`} />
-                      <p className="text-[11px] text-slate-500">{feat.label}</p>
+                      <p className="text-[11px] text-slate-400">{feat.label}</p>
                     </div>
                   )
                 })}
