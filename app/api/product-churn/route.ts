@@ -55,14 +55,26 @@ export async function POST(request: NextRequest) {
       const lines = text.trim().split('\n')
       const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase())
 
+      // Identify which columns should be treated as numeric
+      const numericHeaders = new Set<string>()
+      for (const h of headers) {
+        if (/quantity|qty|units|count|pieces|pcs|price|cost|amount|total|net|gross|vat|tax|discount|sum|revenue|sales/i.test(h)) {
+          numericHeaders.add(h)
+        }
+      }
+
       orders = lines.slice(1).map(line => {
         const values = parseCSVLine(line)
         const obj: Record<string, any> = {}
 
         headers.forEach((header, i) => {
           const val = values[i]
-          const num = parseFloat(val)
-          obj[header] = isNaN(num) ? val : num
+          if (numericHeaders.has(header)) {
+            const num = parseFloat(val)
+            obj[header] = isNaN(num) ? val : num
+          } else {
+            obj[header] = val
+          }
         })
 
         return obj as Order

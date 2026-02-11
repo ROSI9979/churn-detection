@@ -37,6 +37,7 @@ export interface CategoryAlert {
   weeks_since_last_order: number
   estimated_lost_revenue: number
   competitor_likely: boolean
+  churn_reason: 'competitor' | 'product_switch' | 'business_decline' | 'unknown'
   recommended_discount: number
   recommended_action: string
 }
@@ -65,9 +66,26 @@ export interface RetentionStrategy {
   win_back_probability: number
 }
 
+export interface CustomerActionSummary {
+  customer_id: string
+  priority_score: number          // 0-100, higher = call first
+  priority_rank: number           // 1, 2, 3...
+  total_monthly_loss: number      // Total £ at risk from this customer
+  competitor_loss: number         // £ lost specifically to competitors
+  customer_monthly_spend: number  // Current total monthly spend
+  customer_health: 'healthy' | 'declining' | 'stopped'
+  spend_change_pct: number        // Overall spend change %
+  alerts_count: number
+  competitor_alerts: number
+  top_lost_products: string[]     // Top 3 products lost to competitors
+  recommended_action: string      // One-line action summary
+  urgency: 'call_today' | 'call_this_week' | 'monitor'
+}
+
 export interface AnalysisResult {
   alerts: CategoryAlert[]
   customer_profiles: Record<string, Record<string, CustomerCategoryProfile>>
+  action_list: CustomerActionSummary[]  // Prioritised customer call list
   summary: {
     total_customers: number
     customers_with_alerts: number
@@ -165,9 +183,9 @@ export class ProductLevelChurnEngine {
     date: string | null
   } | null = null
 
-  constructor(lookbackWeeks = 52, baselineWeeks = 30) {
+  constructor(lookbackWeeks = 52, baselineMonths = 5) {
     this.lookbackWeeks = lookbackWeeks
-    this.baselineWeeks = baselineWeeks
+    this.baselineWeeks = baselineMonths * 4  // approx weeks
     this.thresholds = {
       stopped_weeks: 6,
       decline_pct: 50,
@@ -383,12 +401,16 @@ export class ProductLevelChurnEngine {
       const dateStr = this.normalizeDateString(dateVal)
 
       const quantity = Number(this.getField(order, 'quantity')) || 1
-      const value = Number(this.getField(order, 'value')) || 0
+      const unitValue = Number(this.getField(order, 'value')) || 0
+
+      // The value column might be unit price (not line total)
+      // Compute actual line total = quantity × unit value
+      const lineTotal = quantity * unitValue
 
       customerMap.get(productKey)!.push({
         date: dateStr,
         quantity: quantity,
-        value: value,
+        value: lineTotal,
       } as Order)
     }
 
@@ -408,58 +430,85 @@ export class ProductLevelChurnEngine {
     }
   }
 
+  // Find the global earliest date across all orders for a customer
+  // so baseline window is consistent per customer, not per product
+  private customerEarliestDates: Map<string, Date> = new Map()
+
+  private getBaselineEnd(customerId: string): Date {
+    const earliest = this.customerEarliestDates.get(customerId)
+    if (!earliest) return new Date()
+    const baselineEnd = new Date(earliest)
+    baselineEnd.setMonth(baselineEnd.getMonth() + 5) // First 5 months
+    return baselineEnd
+  }
+
   private calculateBaseline(
     orders: Order[],
-    referenceDate: Date
-  ): { qty: number; value: number; orderCount: number } {
+    referenceDate: Date,
+    customerId: string
+  ): { qty: number; value: number; orderCount: number; monthlyQty: number; monthlyValue: number } {
     const sortedOrders = [...orders].sort((a, b) =>
       (a.date || '').localeCompare(b.date || '')
     )
 
-    let earliestDate: Date | null = null
-    for (const order of sortedOrders) {
-      const d = this.parseDate(order.date || '')
-      if (d) {
-        earliestDate = d
-        break
-      }
+    const earliest = this.customerEarliestDates.get(customerId)
+    if (!earliest) {
+      return { qty: 0, value: 0, orderCount: 0, monthlyQty: 0, monthlyValue: 0 }
     }
 
-    if (!earliestDate) {
-      return { qty: 0, value: 0, orderCount: 0 }
-    }
-
-    // Use first 7 months (210 days) as baseline period
-    const baselineEnd = new Date(earliestDate)
-    baselineEnd.setDate(baselineEnd.getDate() + 210)
+    const baselineEnd = this.getBaselineEnd(customerId)
 
     const baselineOrders = sortedOrders.filter(o => {
       const orderDate = this.parseDate(o.date || '')
-      return orderDate && orderDate >= earliestDate! && orderDate <= baselineEnd
+      return orderDate && orderDate >= earliest && orderDate <= baselineEnd
     })
 
-    const actualBaselineWeeks = baselineOrders.length > 0 ? 30 : 1
+    if (baselineOrders.length === 0) {
+      return { qty: 0, value: 0, orderCount: 0, monthlyQty: 0, monthlyValue: 0 }
+    }
 
     const totalQty = baselineOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)
     const totalValue = baselineOrders.reduce((sum, o) => sum + (o.value || 0), 0)
 
+    // Use the ACTIVE ordering span for this product to calculate monthly rate
+    // e.g. if they ordered from Jun 14 to Jul 12 (28 days), that's ~1 month
+    const firstOrderDate = this.parseDate(baselineOrders[0].date || '')
+    const lastOrderDate = this.parseDate(baselineOrders[baselineOrders.length - 1].date || '')
+
+    let activeMonths: number
+    if (firstOrderDate && lastOrderDate && baselineOrders.length > 1) {
+      const activeDays = (lastOrderDate.getTime() - firstOrderDate.getTime()) / (24 * 60 * 60 * 1000)
+      // Add average gap to account for the period after last order
+      const avgGap = activeDays / (baselineOrders.length - 1)
+      activeMonths = Math.max(1, (activeDays + avgGap) / 30)
+    } else {
+      // Single order — treat as 1 month of activity
+      activeMonths = 1
+    }
+
     return {
-      qty: totalQty / actualBaselineWeeks,
-      value: totalValue / actualBaselineWeeks,
-      orderCount: baselineOrders.length
+      qty: totalQty,
+      value: totalValue,
+      orderCount: baselineOrders.length,
+      monthlyQty: totalQty / activeMonths,
+      monthlyValue: totalValue / activeMonths,
     }
   }
 
   private calculateCurrent(
     orders: Order[],
-    referenceDate: Date
-  ): { qty: number; value: number; lastOrder: string | null } {
-    const recentStart = new Date(referenceDate)
-    recentStart.setDate(recentStart.getDate() - 28) // 4 weeks
+    referenceDate: Date,
+    customerId: string
+  ): { qty: number; value: number; lastOrder: string | null; monthlyQty: number; monthlyValue: number } {
+    const baselineEnd = this.getBaselineEnd(customerId)
 
-    const recentOrders = orders.filter(o => {
+    // "Current" = last 3 months of data for a fair comparison
+    const currentStart = new Date(referenceDate)
+    currentStart.setMonth(currentStart.getMonth() - 3)
+
+    const currentOrders = orders.filter(o => {
       const orderDate = this.parseDate(o.date || '')
-      return orderDate && orderDate >= recentStart
+      return orderDate && orderDate >= currentStart && orderDate <= referenceDate
     })
 
     let lastOrderDate: string | null = null
@@ -469,10 +518,16 @@ export class ProductLevelChurnEngine {
       }
     }
 
-    const totalQty = recentOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)
-    const totalValue = recentOrders.reduce((sum, o) => sum + (o.value || 0), 0)
+    const totalQty = currentOrders.reduce((sum, o) => sum + (o.quantity || 0), 0)
+    const totalValue = currentOrders.reduce((sum, o) => sum + (o.value || 0), 0)
 
-    return { qty: totalQty / 4, value: totalValue / 4, lastOrder: lastOrderDate }
+    return {
+      qty: totalQty,
+      value: totalValue,
+      lastOrder: lastOrderDate,
+      monthlyQty: totalQty / 3,  // 3 months
+      monthlyValue: totalValue / 3,
+    }
   }
 
   private detectTrendWithThresholds(
@@ -582,11 +637,105 @@ export class ProductLevelChurnEngine {
     // Group by customer → individual product → orders
     const grouped = this.parseOrders(orders)
 
+    // Pre-compute earliest order date per customer (for consistent baseline window)
+    this.customerEarliestDates = new Map()
+    for (const [customerId, products] of grouped) {
+      let earliest: Date | null = null
+      for (const [, productOrders] of products) {
+        for (const o of productOrders) {
+          const d = this.parseDate(o.date || '')
+          if (d && (!earliest || d < earliest)) {
+            earliest = d
+          }
+        }
+      }
+      if (earliest) {
+        this.customerEarliestDates.set(customerId, earliest)
+        const baselineEnd = this.getBaselineEnd(customerId)
+        console.log(`Customer ${customerId}: data from ${earliest.toISOString().split('T')[0]}, baseline ends ${baselineEnd.toISOString().split('T')[0]}`)
+      }
+    }
+
+    // Compute customer-level health: is their TOTAL spend declining?
+    // If total spend drops significantly, it's likely business decline, not competitor
+    const customerHealth: Map<string, { baselineMonthly: number; currentMonthly: number; dropPct: number; status: 'healthy' | 'declining' | 'stopped' }> = new Map()
+
+    for (const [customerId, products] of grouped) {
+      const earliest = this.customerEarliestDates.get(customerId)
+      if (!earliest) continue
+
+      const baselineEnd = this.getBaselineEnd(customerId)
+      const currentStart = new Date(refDate)
+      currentStart.setMonth(currentStart.getMonth() - 3)
+
+      let baselineTotal = 0
+      let currentTotal = 0
+
+      for (const [, productOrders] of products) {
+        for (const o of productOrders) {
+          const d = this.parseDate(o.date || '')
+          if (!d) continue
+          const val = (o.value || 0)
+          if (d >= earliest && d <= baselineEnd) {
+            baselineTotal += val
+          }
+          if (d >= currentStart && d <= refDate) {
+            currentTotal += val
+          }
+        }
+      }
+
+      // Baseline: total over 5 months → per month
+      const baselineMonthly = baselineTotal / 5
+      // Current: total over 3 months → per month
+      const currentMonthly = currentTotal / 3
+
+      const dropPct = baselineMonthly > 0 ? ((baselineMonthly - currentMonthly) / baselineMonthly) * 100 : 0
+
+      let status: 'healthy' | 'declining' | 'stopped' = 'healthy'
+      if (currentMonthly === 0) status = 'stopped'
+      else if (dropPct >= 30) status = 'declining'
+
+      customerHealth.set(customerId, { baselineMonthly, currentMonthly, dropPct, status })
+      console.log(`Customer ${customerId} health: baseline £${baselineMonthly.toFixed(0)}/mo → current £${currentMonthly.toFixed(0)}/mo (${dropPct > 0 ? '-' : '+'}${Math.abs(dropPct).toFixed(0)}%) → ${status}`)
+    }
+
     const alerts: CategoryAlert[] = []
     const profiles: Record<string, Record<string, CustomerCategoryProfile>> = {}
 
+    // First pass: build per-product current spend so we can detect product switches
+    // A product switch = stopped product X but started a SIMILAR product Y
+    const productCurrentData: Map<string, Map<string, { monthlyValue: number; firstOrder: string | null; baselineOrders: number }>> = new Map()
+
     for (const [customerId, products] of grouped) {
       profiles[customerId] = {}
+      productCurrentData.set(customerId, new Map())
+      const custData = productCurrentData.get(customerId)!
+
+      for (const [productKey, productOrders] of products) {
+        const current = this.calculateCurrent(productOrders, refDate, customerId)
+        const baseline = this.calculateBaseline(productOrders, refDate, customerId)
+
+        // Find first order date for this product
+        let firstOrder: string | null = null
+        for (const o of productOrders) {
+          if (!firstOrder || (o.date && o.date < firstOrder)) {
+            firstOrder = o.date || null
+          }
+        }
+
+        custData.set(productKey, {
+          monthlyValue: current.monthlyValue,
+          firstOrder,
+          baselineOrders: baseline.orderCount,
+        })
+      }
+    }
+
+    // Second pass: generate alerts with product switch detection
+    for (const [customerId, products] of grouped) {
+      profiles[customerId] = {}
+      const custData = productCurrentData.get(customerId)!
 
       for (const [productKey, productOrders] of products) {
         productOrders.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
@@ -594,25 +743,26 @@ export class ProductLevelChurnEngine {
         const displayName = this.getDisplayName(customerId, productKey)
         const category = this.deriveCategory(productKey)
 
-        // Classify how frequently this product was ordered
+        // Classify how frequently this product was ordered during baseline
         const frequency = this.classifyProductFrequency(productOrders)
         const thresholds = FREQUENCY_THRESHOLDS[frequency]
 
-        const baseline = this.calculateBaseline(productOrders, refDate)
-        const current = this.calculateCurrent(productOrders, refDate)
+        const baseline = this.calculateBaseline(productOrders, refDate, customerId)
+        const current = this.calculateCurrent(productOrders, refDate, customerId)
 
+        // Compare baseline monthly rate vs current monthly rate
         const trend = this.detectTrendWithThresholds(
-          baseline.qty, current.qty, current.lastOrder, refDate, thresholds
+          baseline.monthlyQty, current.monthlyQty, current.lastOrder, refDate, thresholds
         )
 
         // Build profile
         const profile: CustomerCategoryProfile = {
           customer_id: customerId,
           category: displayName,
-          baseline_weekly_qty: Math.round(baseline.qty * 100) / 100,
-          baseline_weekly_value: Math.round(baseline.value * 100) / 100,
-          current_weekly_qty: Math.round(current.qty * 100) / 100,
-          current_weekly_value: Math.round(current.value * 100) / 100,
+          baseline_weekly_qty: Math.round(baseline.monthlyQty * 100) / 100,
+          baseline_weekly_value: Math.round(baseline.monthlyValue * 100) / 100,
+          current_weekly_qty: Math.round(current.monthlyQty * 100) / 100,
+          current_weekly_value: Math.round(current.monthlyValue * 100) / 100,
           last_order_date: current.lastOrder,
           trend,
           volatility: 0,
@@ -626,8 +776,8 @@ export class ProductLevelChurnEngine {
 
         // Generate alerts for products that are declining or stopped
         if (trend === 'stopped' || trend === 'declining') {
-          const dropPct = baseline.qty > 0
-            ? ((baseline.qty - current.qty) / baseline.qty) * 100
+          const dropPct = baseline.monthlyQty > 0
+            ? ((baseline.monthlyQty - current.monthlyQty) / baseline.monthlyQty) * 100
             : 0
 
           let weeksSince = 0
@@ -655,12 +805,111 @@ export class ProductLevelChurnEngine {
             severity = 'warning'
           }
 
-          const estimatedLoss = (baseline.value - current.value) * 4 // Monthly
+          // Check if this is a product switch — look for a VERY SIMILAR product
+          // that is currently being ordered (same core product, different brand/size/variant)
+          // e.g. "KTC RAPESEED OIL 20LTR" → "Plastic KTC Vegetable Oil 20L" = YES (both cooking oil)
+          //      "GARLIC PARSLEY SPREAD 1.5KG" → "GARLIC PARSLEY SPREAD 1KG" = YES (same product, smaller)
+          //      "DICED CHICKEN 2.5KG" → "Chicken Popcorn 1KG" = NO (completely different products)
+          //      "BLUE CENTRE FEED ROLLS 6PCS" → "Active Blue Centre feed Roll x 6pcs" = YES (same product)
+          let isProductSwitch = false
+          let replacementProduct = ''
+
+          // Strip numbers, sizes, weights, brand prefixes to get the CORE product identity
+          const coreIdentity = (name: string): string => {
+            return name
+              .replace(/\d+(\.\d+)?\s*(kg|ltr|liter|litre|ml|g|pcs|x|mm|oz|pack|case|pc)\b/gi, '')
+              .replace(/\b(small|medium|large|gb|eu|pack|case|premium|classic|original|new)\b/gi, '')
+              .replace(/[^a-z ]/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .split(/\s+/)
+              .map(w => w.replace(/s$/, '')) // normalize plurals: rolls→roll, boxes→boxe(ok), cans→can
+              .join(' ')
+          }
+
+          const stoppedCore = coreIdentity(productKey)
+
+          for (const [otherKey, otherData] of custData) {
+            if (otherKey === productKey) continue
+            if (otherData.monthlyValue <= 0) continue
+
+            const otherCore = coreIdentity(otherKey)
+
+            // Check if one core name contains the other (high similarity)
+            // e.g. "garlic parsley spread" contains "garlic parsley spread"
+            // "blue centre feed rolls" ~ "active blue centre feed roll"
+            // "grated red cheddar" ~ "grated red cheddar"
+            // "sliced doner kebab meat" ~ "cooked sliced doner kebab meat"
+            const shorter = stoppedCore.length <= otherCore.length ? stoppedCore : otherCore
+            const longer = stoppedCore.length > otherCore.length ? stoppedCore : otherCore
+
+            // The shorter core name must be substantially contained in the longer one
+            // and the shorter name must be meaningful (at least 2 words)
+            const shorterWords = shorter.split(/\s+/).filter(w => w.length > 2)
+            const longerWords = longer.split(/\s+/).filter(w => w.length > 2)
+
+            if (shorterWords.length < 2) continue
+
+            // Count how many of the shorter product's words appear in the longer one
+            const matchCount = shorterWords.filter(w => longerWords.includes(w)).length
+            const matchRatio = matchCount / shorterWords.length
+
+            // Need 80%+ of the shorter name's words to match
+            // This catches: "rapeseed oil" (2 words) needs both → "vegetable oil" only shares "oil" = 50% → NO
+            // "garlic parsley spread" (3 words) needs 3 → "garlic parsley spread" = 100% → YES
+            // "blue centre feed rolls" (4 words) needs 4 → "active blue centre feed roll" has all 4 → YES
+            // "diced chicken" (2 words) needs both → "crispy chicken strips" has "chicken" = 50% → NO
+            // "sliced doner kebab meat" (4 words) needs 4 → "cooked sliced doner kebab meat" has all → YES
+            if (matchRatio >= 0.8) {
+              isProductSwitch = true
+              replacementProduct = this.getDisplayName(customerId, otherKey)
+              break
+            }
+          }
+
+          // Determine churn reason based on evidence
+          const health = customerHealth.get(customerId)
+          let churnReason: 'competitor' | 'product_switch' | 'business_decline' | 'unknown' = 'unknown'
+
+          if (isProductSwitch) {
+            churnReason = 'product_switch'
+            severity = 'watch'
+          } else if (health && health.status === 'stopped') {
+            // Customer stopped ordering everything — shop closed / owner changed
+            churnReason = 'business_decline'
+          } else if (health && health.status === 'declining') {
+            // Customer's TOTAL spend is down 30%+ — could be business decline
+            // But if they stopped specific products while keeping others, it's mixed
+            // If this product dropped MORE than the overall business, competitor is likely
+            if (dropPct > health.dropPct + 20) {
+              // Product dropped much more than overall business → competitor
+              churnReason = 'competitor'
+            } else {
+              // Product drop is in line with overall decline → business decline
+              churnReason = 'business_decline'
+              // Don't downgrade severity — still worth knowing, but different action needed
+            }
+          } else {
+            // Customer overall spend is healthy but stopped this product → competitor
+            churnReason = 'competitor'
+          }
+
+          // Estimated monthly loss = baseline monthly value - current monthly value
+          const estimatedLoss = baseline.monthlyValue - current.monthlyValue
           const competitor = this.inferCompetitorType(category)
-          const competitorLikely = trend === 'stopped' && weeksSince >= thresholds.stopped_weeks && dropPct > 80
+          const competitorLikely = churnReason === 'competitor'
           const { discount, action } = this.generateRecommendation(
             severity, dropPct, displayName, category, competitor.type
           )
+
+          let recommendedAction: string
+          if (isProductSwitch) {
+            recommendedAction = `Product switch: customer replaced ${displayName} with ${replacementProduct}. Monitor — likely preference change.`
+          } else if (churnReason === 'business_decline') {
+            recommendedAction = `Business decline: customer's overall spend is down ${Math.round(health?.dropPct || 0)}%. ${displayName} drop may be due to lower sales volume, not competitor. Check if business is still active.`
+          } else {
+            recommendedAction = action
+          }
 
           alerts.push({
             customer_id: customerId,
@@ -669,14 +918,15 @@ export class ProductLevelChurnEngine {
             products: [displayName],
             signal_type: trend as 'stopped' | 'declining',
             severity,
-            baseline_quantity: Math.round(baseline.qty * 100) / 100,
-            current_quantity: Math.round(current.qty * 100) / 100,
+            baseline_quantity: Math.round(baseline.monthlyQty * 100) / 100,
+            current_quantity: Math.round(current.monthlyQty * 100) / 100,
             drop_percentage: Math.round(dropPct * 10) / 10,
             weeks_since_last_order: weeksSince,
             estimated_lost_revenue: Math.round(estimatedLoss * 100) / 100,
             competitor_likely: competitorLikely,
+            churn_reason: churnReason,
             recommended_discount: Math.round(discount * 10) / 10,
-            recommended_action: action,
+            recommended_action: recommendedAction,
           })
         }
       }
@@ -709,6 +959,106 @@ export class ProductLevelChurnEngine {
       }
     })
 
+    // Build prioritised customer action list
+    // Group alerts by customer, calculate priority score
+    const customerAlerts = new Map<string, CategoryAlert[]>()
+    for (const alert of alerts) {
+      if (!customerAlerts.has(alert.customer_id)) {
+        customerAlerts.set(alert.customer_id, [])
+      }
+      customerAlerts.get(alert.customer_id)!.push(alert)
+    }
+
+    const actionList: CustomerActionSummary[] = []
+    for (const [custId, custAlerts] of customerAlerts) {
+      const health = customerHealth.get(custId)
+      const competitorAlerts = custAlerts.filter(a => a.churn_reason === 'competitor')
+      const totalLoss = custAlerts.reduce((sum, a) => sum + a.estimated_lost_revenue, 0)
+      const competitorLoss = competitorAlerts.reduce((sum, a) => sum + a.estimated_lost_revenue, 0)
+
+      // Priority score (0-100):
+      // - Competitor loss amount (biggest factor — money on the table)
+      // - Recency (recent losses are more winnable)
+      // - Customer value (bigger customers matter more)
+      // - Reason (competitor > business_decline > product_switch)
+
+      let score = 0
+
+      // 1. Competitor loss amount (0-40 points)
+      // £500+/mo = 40pts, £100/mo = 20pts, £0 = 0pts
+      score += Math.min(40, (competitorLoss / 500) * 40)
+
+      // 2. Recency — how recently did the losses happen? (0-25 points)
+      // Recent losses (< 8 weeks) are winnable, old losses (> 52 weeks) are harder
+      const minWeeks = Math.min(...competitorAlerts.map(a => a.weeks_since_last_order).filter(w => w > 0), 999)
+      if (minWeeks <= 4) score += 25
+      else if (minWeeks <= 8) score += 20
+      else if (minWeeks <= 16) score += 15
+      else if (minWeeks <= 26) score += 10
+      else if (minWeeks <= 52) score += 5
+      // > 52 weeks = 0 points
+
+      // 3. Customer current value (0-20 points)
+      const currentSpend = health?.currentMonthly || 0
+      // £3000+/mo = 20pts, scaling down
+      score += Math.min(20, (currentSpend / 3000) * 20)
+
+      // 4. Number of competitor alerts (0-15 points)
+      // More products lost = more urgent pattern
+      score += Math.min(15, competitorAlerts.length * 3)
+
+      // Penalty: if business is declining or stopped, reduce priority
+      if (health?.status === 'stopped') score *= 0.1  // Barely worth calling
+      else if (health?.status === 'declining') score *= 0.6
+
+      // Skip if no competitor alerts (only product switches)
+      if (competitorAlerts.length === 0) {
+        score *= 0.2 // Very low priority
+      }
+
+      const topProducts = competitorAlerts
+        .sort((a, b) => b.estimated_lost_revenue - a.estimated_lost_revenue)
+        .slice(0, 3)
+        .map(a => a.product_name)
+
+      // Determine urgency
+      let urgency: 'call_today' | 'call_this_week' | 'monitor' = 'monitor'
+      if (score >= 50 && competitorAlerts.length > 0) urgency = 'call_today'
+      else if (score >= 25 && competitorAlerts.length > 0) urgency = 'call_this_week'
+
+      // Build one-line action summary
+      let actionSummary: string
+      if (health?.status === 'stopped') {
+        actionSummary = `Business may be closed — overall spend dropped to £0. Verify if still trading.`
+      } else if (competitorAlerts.length === 0) {
+        actionSummary = `Product switches only — no competitor action needed. Monitor.`
+      } else if (competitorAlerts.length === 1) {
+        actionSummary = `Lost ${topProducts[0]} to competitor (£${Math.round(competitorLoss)}/mo). Offer discount to win back.`
+      } else {
+        actionSummary = `Lost ${competitorAlerts.length} products to competitors (£${Math.round(competitorLoss)}/mo). Top: ${topProducts.slice(0, 2).join(', ')}. Call to discuss pricing.`
+      }
+
+      actionList.push({
+        customer_id: custId,
+        priority_score: Math.round(score),
+        priority_rank: 0,  // Set after sorting
+        total_monthly_loss: Math.round(totalLoss * 100) / 100,
+        competitor_loss: Math.round(competitorLoss * 100) / 100,
+        customer_monthly_spend: Math.round((health?.currentMonthly || 0) * 100) / 100,
+        customer_health: health?.status || 'healthy',
+        spend_change_pct: Math.round(health?.dropPct || 0),
+        alerts_count: custAlerts.length,
+        competitor_alerts: competitorAlerts.length,
+        top_lost_products: topProducts,
+        recommended_action: actionSummary,
+        urgency,
+      })
+    }
+
+    // Sort by priority score descending and assign ranks
+    actionList.sort((a, b) => b.priority_score - a.priority_score)
+    actionList.forEach((item, idx) => { item.priority_rank = idx + 1 })
+
     // Summary
     const summary = {
       total_customers: grouped.size,
@@ -724,6 +1074,6 @@ export class ProductLevelChurnEngine {
       competitor_signals: alerts.filter(a => a.competitor_likely).length,
     }
 
-    return { alerts, customer_profiles: profiles, summary, recommendations }
+    return { alerts, customer_profiles: profiles, action_list: actionList, summary, recommendations }
   }
 }
