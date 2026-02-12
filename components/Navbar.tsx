@@ -66,6 +66,7 @@ export default function Navbar() {
               <Package className="w-4 h-4" />
               Lost Product Detection
             </Link>
+{/* Email Import - Hidden for now
             <Link
               href="/email-import"
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -77,6 +78,7 @@ export default function Navbar() {
               <Mail className="w-4 h-4" />
               Email Import
             </Link>
+            */}
           </div>
 
           {/* User Menu */}
