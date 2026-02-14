@@ -1,25 +1,20 @@
 import NextAuth from 'next-auth'
-import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// Create Supabase client only if configured
-let supabase: SupabaseClient | null = null
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Create Supabase client lazily to avoid build-time issues
+function getSupabaseClient(): SupabaseClient | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-if (supabaseUrl && supabaseKey && supabaseUrl.startsWith('http')) {
-  supabase = createClient(supabaseUrl, supabaseKey)
+  if (supabaseUrl && supabaseKey && supabaseUrl.startsWith('http')) {
+    return createClient(supabaseUrl, supabaseKey)
+  }
+  return null
 }
 
 const handler = NextAuth({
   providers: [
-    // Google Sign-In
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-    }),
-
     // Email + Password with Supabase
     CredentialsProvider({
       name: 'credentials',
@@ -34,9 +29,10 @@ const handler = NextAuth({
           throw new Error('Email and password required')
         }
 
-        // Check if Supabase is configured
+        // Get Supabase client
+        const supabase = getSupabaseClient()
         if (!supabase) {
-          throw new Error('Supabase not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local')
+          throw new Error('Supabase not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
         }
 
         const isSignUp = credentials.isSignUp === 'true'
