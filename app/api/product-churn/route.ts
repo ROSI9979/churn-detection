@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { ProductLevelChurnEngine, Order } from './engine'
+import { supabase } from '@/lib/supabase'
 
 // Parse a CSV line handling quoted fields (commas inside quotes, escaped quotes)
 function parseCSVLine(line: string): string[] {
@@ -91,8 +93,42 @@ export async function POST(request: NextRequest) {
     const engine = new ProductLevelChurnEngine()
     const analysis = engine.analyze(orders)
 
+    // Try to save to database if user is logged in
+    let analysis_id = null
+    try {
+      const session = await getServerSession()
+      if (session?.user?.email) {
+        const analysisData = {
+          user_id: session.user.email,
+          file_name: file.name,
+          total_customers: analysis.summary?.total_customers || 0,
+          total_alerts: analysis.summary?.total_alerts || 0,
+          critical_alerts: analysis.summary?.critical_alerts || 0,
+          warning_alerts: analysis.summary?.warning_alerts || 0,
+          watch_alerts: analysis.summary?.watch_alerts || 0,
+          total_monthly_loss: analysis.summary?.total_estimated_monthly_loss || 0,
+          competitor_signals: analysis.summary?.competitor_signals || 0,
+          raw_data: { alerts: analysis.alerts, action_list: analysis.action_list, summary: analysis.summary, recommendations: analysis.recommendations }
+        }
+
+        const { data, error } = await supabase
+          .from('analyses')
+          .insert([analysisData])
+          .select('id')
+          .single()
+
+        if (!error && data) {
+          analysis_id = data.id
+        }
+      }
+    } catch (saveError) {
+      // Don't fail the analysis if save fails - just log it
+      console.error('Failed to save analysis:', saveError)
+    }
+
     return NextResponse.json({
       success: true,
+      analysis_id,
       ...analysis,
     })
   } catch (error: any) {

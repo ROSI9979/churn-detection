@@ -8,7 +8,7 @@ import { Mail, Lock, User, LogIn, UserPlus, AlertCircle } from 'lucide-react'
 export default function SignInPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const callbackUrl = searchParams.get('callbackUrl') || '/product-churn'
   const error = searchParams.get('error')
 
   const [isSignUp, setIsSignUp] = useState(false)
@@ -77,7 +77,7 @@ export default function SignInPage() {
       <div className="max-w-md w-full">
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Churn Intelligence</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">RetainIQ</h1>
           <p className="text-gray-400">
             {isSignUp ? 'Create your account' : 'Sign in to your account'}
           </p>

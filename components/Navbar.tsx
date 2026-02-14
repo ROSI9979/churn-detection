@@ -66,6 +66,19 @@ export default function Navbar() {
               <Package className="w-4 h-4" />
               Lost Product Detection
             </Link>
+            {session && (
+              <Link
+                href="/dashboard"
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isActive('/dashboard')
+                    ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-white border border-emerald-500/30'
+                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                Dashboard
+              </Link>
+            )}
 {/* Email Import - Hidden for now
             <Link
               href="/email-import"
